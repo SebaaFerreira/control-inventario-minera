@@ -1,6 +1,6 @@
 from rest_framework import viewsets
-from .models import Bodega, Categoria, Articulo
-from .serializers import BodegaSerializer, CategoriaSerializer, ArticuloSerializer
+from .models import Bodega, Categoria, Articulo, Movimiento
+from .serializers import BodegaSerializer, CategoriaSerializer, ArticuloSerializer, MovimientoSerializer
 
 class BodegaViewSet(viewsets.ModelViewSet):
     queryset = Bodega.objects.all()
@@ -15,3 +15,7 @@ class CategoriaViewSet(viewsets.ModelViewSet):
 class ArticuloViewSet(viewsets.ModelViewSet):
     queryset = Articulo.objects.all()
     serializer_class = ArticuloSerializer
+
+class MovimientoViewSet(viewsets.ModelViewSet):
+    queryset = Movimiento.objects.all()
+    serializer_class = MovimientoSerializer

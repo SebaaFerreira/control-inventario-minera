@@ -40,3 +40,44 @@ class Articulo(models.Model):
 
     def __str__(self):
         return f"{self.nombre} ({self.codigo_interno})"
+
+
+class Movimiento(models.Model):
+    TIPO_MOVIMIENTO_CHOICES = [
+        ('ENTRADA', 'Entrada (Ingreso por camión/guía)'),
+        ('SALIDA', 'Salida (Vale de Consumo)'),
+        ('DEVOLUCION', 'Devolución (Retorno a bodega)'),
+        ('BAJA', 'Baja (Producto dañado/merma)'),
+    ]
+
+    articulo = models.ForeignKey(Articulo, on_delete=models.CASCADE, related_name='movimientos')
+    tipo_movimiento = models.CharField(max_length=20, choices=TIPO_MOVIMIENTO_CHOICES)
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2) # Permite decimales para KG
+    
+    # Campos obligatorios solicitados por la faena
+    rut_personal = models.CharField(max_length=12)
+    nombre_personal = models.CharField(max_length=100)
+    capataz_autoriza = models.CharField(max_length=100)
+    destino_uso = models.CharField(max_length=200, blank=True, null=True)
+    turno = models.CharField(max_length=50)
+    
+    fecha_hora = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.tipo_movimiento} - {self.articulo.nombre} ({self.cantidad})"
+
+    def save(self, *args, **kwargs):
+        # Al guardar un movimiento, actualizamos el stock actual del artículo
+        articulo = self.articulo
+        cantidad_cambio = int(self.cantidad) # O float si manejan decimales estrictos
+
+        if self.tipo_movimiento in ['ENTRADA', 'DEVOLUCION']:
+            articulo.stock_actual += cantidad_cambio
+        elif self.tipo_movimiento in ['SALIDA', 'BAJA']:
+            articulo.stock_actual -= cantidad_cambio
+        
+        # Guardamos el cambio en el artículo
+        articulo.save()
+        
+        # Ejecutamos el guardado normal del movimiento
+        super().save(*args, **kwargs)

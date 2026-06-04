@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Bodega, Categoria, Articulo
+from .models import Bodega, Categoria, Articulo, Movimiento
 
 class BodegaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -25,4 +25,16 @@ class ArticuloSerializer(serializers.ModelSerializer):
             'categoria', 'categoria_nombre', 'bodega', 'bodega_nombre',
             'tipo_control', 'unidad_medida', 'stock_actual', 'stock_critico',
             'fecha_creacion'
+        ]
+
+class MovimientoSerializer(serializers.ModelSerializer):
+    articulo_nombre = serializers.ReadOnlyField(source='articulo.nombre')
+    codigo_interno = serializers.ReadOnlyField(source='articulo.codigo_interno')
+
+    class Meta:
+        model = Movimiento
+        fields = [
+            'id', 'articulo', 'articulo_nombre', 'codigo_interno',
+            'tipo_movimiento', 'cantidad', 'rut_personal', 'nombre_personal',
+            'capataz_autoriza', 'destino_uso', 'turno', 'fecha_hora'
         ]

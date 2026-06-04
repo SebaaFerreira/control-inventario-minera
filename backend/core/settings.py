@@ -36,8 +36,10 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'inventario',
+    'django.contrib.staticfiles', # <--- REVISA QUE ESTA LÍNEA ESTÉ ACTIVADA
+    
+    'rest_framework',              # <--- DRF
+    'inventario',                  # <--- Tu aplicación
 ]
 
 MIDDLEWARE = [
