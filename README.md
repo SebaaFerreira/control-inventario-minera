@@ -21,3 +21,19 @@
    3.- Subir los cambios a GitHub:
       git push origin main
 
+## Estado Actual del Proyecto
+
+### 1. Modelado de Base de Datos (Backend - Django)
+Se reestructuraron los modelos iniciales para adaptarlos a las reglas de negocio de la operación en bodega:
+* **Modelo Trabajador:** Se creó una tabla independiente para registrar al personal (RUT, Nombre, Cargo, Turno) y vincularlos a los movimientos, evitando errores de ingreso manual en cada transacción.
+* **Factor de Conversión:** Se añadió el campo `factor_conversion` en el modelo `Articulo` para automatizar el cálculo y equivalencia entre kilos y unidades (ej. granel).
+* **Trazabilidad de Herramientas:** Se incorporaron los campos de control de devolución en el modelo `Movimiento` para rastrear en tiempo real las herramientas de tipo retornable (vales de cargo pendientes).
+* **Configuración del Entorno:** Se reinició la base de datos local (`db.sqlite3`), se aplicaron migraciones limpias y se registraron los modelos en el panel de administración. Se generó un superusuario para pruebas.
+
+### 2. Arquitectura Frontend (React)
+* Se inicializó el proyecto base utilizando Vite con la plantilla de React en el directorio `/frontend`.
+* Entorno de desarrollo frontend verificado y corriendo en el puerto 5173.
+
+---
+### Próximo Paso
+* Configurar CORS en el archivo `settings.py` de Django para habilitar la comunicación e intercambio de datos (JSON) entre la API (puerto 8000) y el servidor de React (puerto 5173).
