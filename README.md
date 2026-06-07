@@ -37,3 +37,22 @@ Se reestructuraron los modelos iniciales para adaptarlos a las reglas de negocio
 ---
 ### Próximo Paso
 * Configurar CORS en el archivo `settings.py` de Django para habilitar la comunicación e intercambio de datos (JSON) entre la API (puerto 8000) y el servidor de React (puerto 5173).
+
+
+### 3. Actualización de la API REST (Django REST Framework)
+Se modificó la base de la API creada inicialmente para alinearla con la nueva estructura de la base de datos y evitar errores de campos faltantes/sobrantes. Los cambios por archivo fueron los siguientes:
+
+**En `serializers.py`:**
+* Se creó el `TrabajadorSerializer`.
+* **ArticuloSerializer:** Se agregó el campo `factor_conversion` a la lista de fields para exponerlo al frontend.
+* **MovimientoSerializer:** * *Se eliminaron:* Los campos estáticos `rut_personal` y `nombre_personal`.
+  * *Se agregaron:* La llave foránea `trabajador` y el campo de lectura `trabajador_nombre` (vinculado al modelo Trabajador).
+  * *Se agregaron:* Los campos de trazabilidad de herramientas `devuelto` y `fecha_devolucion`.
+
+**En `views.py`:**
+* Se importaron los modelos y serializadores correspondientes a `Trabajador`.
+* Se creó la vista `TrabajadorViewSet` heredando de `ModelViewSet`.
+
+**En `urls.py`:**
+* Se registró la nueva ruta `router.register(r'trabajadores', TrabajadorViewSet)` para exponer el endpoint en `/api/trabajadores/`.
+
