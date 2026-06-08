@@ -66,9 +66,6 @@ class Movimiento(models.Model):
     tipo_movimiento = models.CharField(max_length=20, choices=TIPO_MOVIMIENTO_CHOICES)
     cantidad = models.DecimalField(max_digits=10, decimal_places=2) # Permite decimales para KG
     
-    # Campos obligatorios solicitados por la faena
-    # rut_personal = models.CharField(max_length=12) **se eliminan estos campos para usar la relación con Trabajador**
-    # nombre_personal = models.CharField(max_length=100) **se eliminan estos campos para usar la relación con Trabajador**
     trabajador = models.ForeignKey(Trabajador, on_delete=models.PROTECT, related_name='movimientos')
     capataz_autoriza = models.CharField(max_length=100)
     destino_uso = models.CharField(max_length=200, blank=True, null=True)
@@ -83,17 +80,22 @@ class Movimiento(models.Model):
         return f"{self.tipo_movimiento} - {self.articulo.nombre} ({self.cantidad})"
 
     def save(self, *args, **kwargs):
-        # Al guardar un movimiento, actualizamos el stock actual del artículo
-        articulo = self.articulo
-        cantidad_cambio = int(self.cantidad) # O float si manejan decimales estrictos
-
-        if self.tipo_movimiento in ['ENTRADA', 'DEVOLUCION']:
-            articulo.stock_actual += cantidad_cambio
-        elif self.tipo_movimiento in ['SALIDA', 'BAJA']:
-            articulo.stock_actual -= cantidad_cambio
+        # 1. Verificamos si es un movimiento nuevo
+        es_nuevo = self.pk is None 
         
-        # Guardamos el cambio en el artículo
-        articulo.save()
-        
-        # Ejecutamos el guardado normal del movimiento
+        # 2. Guardamos el movimiento en la base de datos primero
         super().save(*args, **kwargs)
+        
+        # 3. Si es nuevo, hacemos la matemática con el stock
+        if es_nuevo:
+            articulo = self.articulo
+            # Convertimos la cantidad para hacer la matemática segura
+            cantidad_cambio = int(self.cantidad) 
+            
+            if self.tipo_movimiento in ['ENTRADA', 'DEVOLUCION']:
+                articulo.stock_actual += cantidad_cambio
+            elif self.tipo_movimiento in ['SALIDA', 'BAJA']:
+                articulo.stock_actual -= cantidad_cambio
+            
+            # Guardamos el nuevo stock en el artículo
+            articulo.save()

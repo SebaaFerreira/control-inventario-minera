@@ -108,3 +108,16 @@ Se modificó la base de la API creada inicialmente para alinearla con la nueva e
 `npm run dev`
 *Enciende el servidor local de prueba del Frontend (Puerto 5173).*
 
+### 5. Enrutamiento SPA y Envío de Datos (Peticiones POST)
+* **React Router DOM:** Se implementó navegación dinámica sin recarga de página (Single Page Application). Se modularizó la interfaz separando el componente `Sidebar.jsx` de las vistas `Articulos.jsx` y `Salidas.jsx`.
+* **Módulo de Salidas:** Creación del formulario de Vales de Consumo. Implementación de peticiones POST hacia la API de Django para registrar salidas de herramientas e insumos operando con llaves foráneas (Trabajador y Artículo).
+
+**Comandos de aprendizaje utilizados en esta etapa:**
+`npm install react-router-dom` (Librería estándar para gestión de rutas en React)
+
+---
+
+## Hoja de Ruta - Próximas Mejoras (QA Faena)
+Observaciones levantadas para la optimización operativa de la aplicación:
+1. **Buscadores en Formularios:** Reemplazar las listas desplegables nativas (`<select>`) por inputs con autocompletado y búsqueda por texto para el manejo eficiente de grandes nóminas de personal.
+2. **Estructura Organizacional (Cadena de Mando):** Ampliar el modelo `Trabajador` para incluir Especialidad/Cargo, Turno automático y llaves foráneas recursivas que indiquen quién es el Capataz y Supervisor asignado a cada operario.
