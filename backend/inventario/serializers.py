@@ -26,7 +26,7 @@ class ArticuloSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'nombre', 'marca', 'codigo_producto', 'codigo_interno',
             'categoria', 'categoria_nombre', 'bodega', 'bodega_nombre',
-            'tipo_control', 'unidad_medida', 'factor_conversion', # <-- Se agregó factor_conversion
+            'tipo_control', 'unidad_medida', 'factor_conversion',
             'stock_actual', 'stock_critico',
             'fecha_creacion'
         ]
@@ -42,7 +42,36 @@ class MovimientoSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'articulo', 'articulo_nombre', 'codigo_interno',
             'tipo_movimiento', 'cantidad', 
-            'trabajador', 'trabajador_nombre', # <-- Se reemplazó rut_personal y nombre_personal
+            'trabajador', 'trabajador_nombre',
             'capataz_autoriza', 'destino_uso', 'turno', 'fecha_hora',
-            'devuelto', 'fecha_devolucion' # <-- Se agregaron los campos de trazabilidad
+            'estado_prestamo', 'fecha_devolucion' # <-- Se reemplazó 'devuelto' por 'estado_prestamo'
         ]
+
+    def validate(self, data):
+        tipo_movimiento = data.get('tipo_movimiento')
+        cantidad = data.get('cantidad')
+        articulo = data.get('articulo')
+
+        # 1. Validaciones exclusivas para SALIDAS
+        if tipo_movimiento == 'SALIDA':
+            
+            # A. Validar que no haya quiebre de stock negativo
+            if articulo and cantidad > articulo.stock_actual:
+                raise serializers.ValidationError({
+                    "cantidad": f"Stock insuficiente. Solo quedan {articulo.stock_actual} unidades de {articulo.nombre}."
+                })
+            
+            # B. Validar que el destino/uso venga sí o sí (aunque en el modelo permita nulos)
+            if not data.get('destino_uso'):
+                raise serializers.ValidationError({
+                    "destino_uso": "El campo de destino o uso es obligatorio para registrar una salida."
+                })
+
+        # 2. Validaciones exclusivas para DEVOLUCIONES
+        elif tipo_movimiento == 'DEVOLUCION':
+            if articulo and articulo.tipo_control != 'RETORNABLE':
+                raise serializers.ValidationError({
+                    "articulo": f"El artículo {articulo.nombre} es un consumible, no requiere devolución."
+                })
+
+        return data

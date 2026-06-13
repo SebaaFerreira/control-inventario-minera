@@ -14,12 +14,31 @@ class Categoria(models.Model):
     def __str__(self):
         return self.nombre
 
+
 class Trabajador(models.Model):
     rut = models.CharField(max_length=12, unique=True)
     nombre_completo = models.CharField(max_length=150)
-    cargo = models.CharField(max_length=100, blank=True, null=True)
-    turno_asignado = models.CharField(max_length=50, blank=True, null=True)
+    
+    # Campos integrados de tu versión y la de Sebastián
+    cargo = models.CharField(max_length=100, blank=True, null=True, help_text="Ej. M1 Carpintero, Capataz")
+    turno_asignado = models.CharField(max_length=50, blank=True, null=True, help_text="Ej. 14x14 A, Día, Noche")
     activo = models.BooleanField(default=True) # Para desactivar si los desvinculan
+    
+    # Llaves foráneas recursivas para la cadena de mando (Agregadas por Seba)
+    capataz_asignado = models.ForeignKey(
+        'self', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='trabajadores_capataz'
+    )
+    supervisor_asignado = models.ForeignKey(
+        'self', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='trabajadores_supervisor'
+    )
 
     def __str__(self):
         return f"{self.nombre_completo} ({self.rut})"
@@ -51,7 +70,7 @@ class Articulo(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.nombre} ({self.codigo_interno})"
+        return f"{self.nombre} ({self.get_tipo_control_display()})"
 
 
 class Movimiento(models.Model):
@@ -60,6 +79,12 @@ class Movimiento(models.Model):
         ('SALIDA', 'Salida (Vale de Consumo)'),
         ('DEVOLUCION', 'Devolución (Retorno a bodega)'),
         ('BAJA', 'Baja (Producto dañado/merma)'),
+    ]
+
+    ESTADO_PRESTAMO_CHOICES = [
+        ('PENDIENTE', 'Pendiente de Devolución'),
+        ('DEVUELTO', 'Devuelto'),
+        ('N/A', 'No Aplica (Consumible)'),
     ]
 
     articulo = models.ForeignKey(Articulo, on_delete=models.CASCADE, related_name='movimientos')
@@ -72,8 +97,14 @@ class Movimiento(models.Model):
     turno = models.CharField(max_length=50)
     
     fecha_hora = models.DateTimeField(auto_now_add=True)
-    # Solo aplica para salidas de herramientas. Si es consumible, no importa.
-    devuelto = models.BooleanField(default=False)
+    
+    # Reemplazamos el booleano devuelto por el estado_prestamo para mayor precisión
+    estado_prestamo = models.CharField(
+        max_length=15,
+        choices=ESTADO_PRESTAMO_CHOICES,
+        default='N/A',
+        help_text="Controla el estado de las herramientas entregadas en terreno."
+    )
     fecha_devolucion = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
@@ -83,10 +114,17 @@ class Movimiento(models.Model):
         # 1. Verificamos si es un movimiento nuevo
         es_nuevo = self.pk is None 
         
-        # 2. Guardamos el movimiento en la base de datos primero
+        # 2. Automatización del estado de préstamo ANTES de guardar en base de datos
+        if es_nuevo:
+            if self.articulo.tipo_control == 'RETORNABLE' and self.tipo_movimiento == 'SALIDA':
+                self.estado_prestamo = 'PENDIENTE'
+            elif self.articulo.tipo_control == 'CONSUMIBLE':
+                self.estado_prestamo = 'N/A'
+        
+        # 3. Guardamos el movimiento en la base de datos
         super().save(*args, **kwargs)
         
-        # 3. Si es nuevo, hacemos la matemática con el stock
+        # 4. Si es nuevo, hacemos la matemática con el stock
         if es_nuevo:
             articulo = self.articulo
             # Convertimos la cantidad para hacer la matemática segura
