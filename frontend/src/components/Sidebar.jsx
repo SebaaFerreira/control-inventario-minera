@@ -1,31 +1,63 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { 
+  LayoutDashboard, 
+  HardHat, 
+  Nut, 
+  Droplet, 
+  FlaskConical, 
+  Wrench, 
+  Zap,
+  ClipboardList // <-- Ícono nuevo importado para LEIME
+} from 'lucide-react';
 
-function Sidebar() {
+export default function Sidebar() {
+  const location = useLocation();
+
+  // Menú maestro actualizado con LEIME
+  const menuItems = [
+    { name: 'Resumen', path: '/', icon: <LayoutDashboard size={20} /> },
+    { name: 'EPP', path: '/categoria/epp', icon: <HardHat size={20} /> },
+    { name: 'Fijaciones y Sujeciones', path: '/categoria/fijaciones', icon: <Nut size={20} /> },
+    { name: 'Tuberías y Fitting', path: '/categoria/tuberias', icon: <Droplet size={20} /> },
+    { name: 'Sustancias Peligrosas', path: '/categoria/sustancias', icon: <FlaskConical size={20} /> },
+    { name: 'Herramientas Manuales', path: '/categoria/manuales', icon: <Wrench size={20} /> },
+    { name: 'Herramientas Eléctricas', path: '/categoria/electricas', icon: <Zap size={20} /> },
+    { name: 'LEIME', path: '/categoria/leime', icon: <ClipboardList size={20} /> }, // <-- Aquí está tu nueva vista
+  ];
+
   return (
-    <div className="w-64 bg-gray-900 text-white flex flex-col shadow-xl">
-      <div className="p-6 text-xl font-bold border-b border-gray-800 tracking-wider">
-        PROMET <span className="text-blue-500">BODEGA</span>
+    <div className="w-64 h-screen bg-slate-800 text-white flex flex-col fixed left-0 top-0">
+      <div className="p-4 bg-slate-900 border-b border-slate-700">
+        <h1 className="text-xl font-bold text-amber-400">Bodega Promet</h1>
+        <p className="text-xs text-slate-400">Control de Inventario</p>
       </div>
-      <nav className="flex-1 p-4 space-y-2 mt-4">
-        {/* Usamos Link en lugar de button para conectarlo al sistema de rutas */}
-        <Link to="/" className="block w-full text-left p-3 bg-gray-800 rounded-md hover:bg-gray-700 transition">
-          📊 Dashboard / Artículos
-        </Link>
-        <Link to="/entradas" className="block w-full text-left p-3 rounded-md hover:bg-gray-700 transition">
-          📥 Entradas
-        </Link>
-        <Link to="/salidas" className="block w-full text-left p-3 rounded-md hover:bg-gray-700 transition">
-          📤 Salidas
-        </Link>
-        <Link to="/cargos" className="block w-full text-left p-3 rounded-md hover:bg-gray-700 transition">
-          🛠️ Cargos Pendientes
-        </Link>
+      
+      <nav className="flex-1 py-4 overflow-y-auto">
+        <ul className="space-y-1 px-2">
+          {menuItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <li key={item.path}>
+                <Link
+                  to={item.path}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                    isActive 
+                      ? 'bg-amber-500 text-slate-900 font-semibold' 
+                      : 'hover:bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  {item.icon}
+                  <span className="text-sm">{item.name}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </nav>
-      <div className="p-4 border-t border-gray-800 text-sm text-gray-400">
-        Usuario: Bodeguero Turno A
+      
+      <div className="p-4 border-t border-slate-700 text-xs text-slate-400 text-center">
+        Usuario: Admin Pañol
       </div>
     </div>
   );
 }
-
-export default Sidebar;
