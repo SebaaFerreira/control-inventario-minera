@@ -1,10 +1,10 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
-// 1. Aquí importamos el componente real que acabas de crear
 import VistaCategoria from './components/VistaCategoria';
-
-// Dejamos solo el placeholder del Dashboard por ahora
-const Dashboard = () => <div className="p-8"><h2 className="text-2xl font-bold">Dashboard de Resumen</h2></div>;
+import Salidas from './pages/Salidas';
+import Historial from './pages/Historial';
+import Dashboard from './pages/Dashboard';
+import Trabajadores from './pages/Trabajadores'; // <-- Importación nueva
 
 export default function App() {
   return (
@@ -17,8 +17,10 @@ export default function App() {
         <div className="flex-1 ml-64">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            {/* 2. Ahora sí está usando tu componente real */}
             <Route path="/categoria/:categoriaId" element={<VistaCategoria />} />
+            <Route path="/salidas" element={<Salidas />} />
+            <Route path="/historial" element={<Historial />} />
+            <Route path="/trabajadores" element={<Trabajadores />} /> {/* <-- Ruta habilitada */}
           </Routes>
         </div>
       </div>

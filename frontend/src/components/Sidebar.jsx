@@ -7,13 +7,13 @@ import {
   FlaskConical, 
   Wrench, 
   Zap,
-  ClipboardList // <-- Ícono nuevo importado para LEIME
+  ClipboardList,
+  Users 
 } from 'lucide-react';
 
 export default function Sidebar() {
   const location = useLocation();
 
-  // Menú maestro actualizado con LEIME
   const menuItems = [
     { name: 'Resumen', path: '/', icon: <LayoutDashboard size={20} /> },
     { name: 'EPP', path: '/categoria/epp', icon: <HardHat size={20} /> },
@@ -22,7 +22,8 @@ export default function Sidebar() {
     { name: 'Sustancias Peligrosas', path: '/categoria/sustancias', icon: <FlaskConical size={20} /> },
     { name: 'Herramientas Manuales', path: '/categoria/manuales', icon: <Wrench size={20} /> },
     { name: 'Herramientas Eléctricas', path: '/categoria/electricas', icon: <Zap size={20} /> },
-    { name: 'LEIME', path: '/categoria/leime', icon: <ClipboardList size={20} /> }, // <-- Aquí está tu nueva vista
+    { name: 'LEIME', path: '/categoria/leime', icon: <ClipboardList size={20} /> },
+    { name: 'Personal / Operarios', path: '/trabajadores', icon: <Users size={20} /> }, // <-- Agregado
   ];
 
   return (

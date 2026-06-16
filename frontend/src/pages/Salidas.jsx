@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
+// 1. Importamos el nuevo componente de búsqueda
+import Select from 'react-select';
 
 function Salidas() {
   const [articulos, setArticulos] = useState([]);
   const [trabajadores, setTrabajadores] = useState([]);
 
+  // Estados para los campos del formulario
   const [trabajadorId, setTrabajadorId] = useState('');
   const [articuloId, setArticuloId] = useState('');
   const [cantidad, setCantidad] = useState('');
@@ -11,21 +14,28 @@ function Salidas() {
   const [destino, setDestino] = useState('');
   const [turno, setTurno] = useState('Día');
 
-  // 1. NUEVO: Separamos la llamada a la API en una función independiente
   const cargarArticulos = () => {
     fetch('http://127.0.0.1:8000/api/articulos/')
       .then(res => res.json())
       .then(data => setArticulos(data));
   };
 
-  // 2. Modificamos el useEffect para que use nuestra nueva función
   useEffect(() => {
-    cargarArticulos(); // Carga el stock inicial al abrir la página
+    cargarArticulos();
     
     fetch('http://127.0.0.1:8000/api/trabajadores/')
       .then(res => res.json())
       .then(data => setTrabajadores(data));
   }, []);
+
+  // 2. Formateamos la lista de trabajadores para que react-select la entienda
+  // Mostrará: "RUT - Nombre Completo (Rol)" y guardará el ID interno.
+  const opcionesTrabajadores = trabajadores.map(t => ({
+    value: t.id,
+    label: `${t.rut} - ${t.nombre_completo} [${t.rol}]`,
+    // Guardamos el turno asignado en el backend para usarlo después si es necesario
+    turno: t.turno_asignado 
+  }));
 
   const handleSubmit = (e) => {
     e.preventDefault(); 
@@ -43,9 +53,7 @@ function Salidas() {
 
     fetch('http://127.0.0.1:8000/api/movimientos/', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(nuevaSalida)
     })
     .then(response => {
@@ -54,10 +62,7 @@ function Salidas() {
         setArticuloId('');
         setCantidad('');
         setDestino('');
-        
-        // 3. NUEVO: Llamamos a la función para refrescar la lista en milisegundos
         cargarArticulos();
-        
       } else {
         alert('❌ Error al registrar la salida. Revisa los datos.');
       }
@@ -72,21 +77,26 @@ function Salidas() {
       <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 max-w-4xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           
-          {/* Fila 1: Trabajador y Capataz */}
+          {/* Fila 1: Trabajador con Buscador y Capataz */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Trabajador que retira *</label>
-              <select 
+              {/* 3. Reemplazamos el select nativo por el buscador dinámico */}
+              <Select
                 required
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                value={trabajadorId}
-                onChange={(e) => setTrabajadorId(e.target.value)}
-              >
-                <option value="">Seleccione un trabajador...</option>
-                {trabajadores.map(t => (
-                  <option key={t.id} value={t.id}>{t.rut} - {t.nombre_completo}</option>
-                ))}
-              </select>
+                placeholder="Digita RUT o nombre..."
+                options={opcionesTrabajadores}
+                onChange={(option) => {
+                  setTrabajadorId(option ? option.value : '');
+                  // Tu observación: Auto-completar el turno del trabajador si viene de la base de datos
+                  if (option && option.turno) {
+                    // Mapeamos los códigos del backend a los del formulario visual
+                    const turnoMap = { 'DIA': 'Día', 'NOCHE': 'Noche', 'A': 'Turno A', 'B': 'Turno B', 'E': 'Turno E' };
+                    setTurno(turnoMap[option.turno] || 'Día');
+                  }
+                }}
+                className="text-gray-800"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Capataz que autoriza *</label>
@@ -142,11 +152,13 @@ function Salidas() {
               >
                 <option value="Día">Turno Día</option>
                 <option value="Noche">Turno Noche</option>
+                <option value="Turno A">Turno A</option>
+                <option value="Turno B">Turno B</option>
+                <option value="Turno E">Turno E</option>
               </select>
             </div>
           </div>
 
-          {/* Botón de Enviar */}
           <div className="pt-4 border-t border-gray-100">
             <button 
               type="submit" 

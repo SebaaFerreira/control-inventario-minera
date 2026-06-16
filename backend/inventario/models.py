@@ -16,32 +16,50 @@ class Categoria(models.Model):
 
 
 class Trabajador(models.Model):
+    ROLES_CHOICES = [
+        ('OPERARIO', 'Operario / Pañolero'),
+        ('CAPATAZ', 'Capataz'),
+        ('SUPERVISOR', 'Supervisor'),
+    ]
+
+    TURNO_CHOICES = [
+        ('A', 'Turno A'),
+        ('B', 'Turno B'),
+        ('E', 'Turno E'),
+        ('DIA', 'Turno Día'),
+        ('NOCHE', 'Turno Noche'),
+    ]
+
     rut = models.CharField(max_length=12, unique=True)
     nombre_completo = models.CharField(max_length=150)
     
-    # Campos integrados de tu versión y la de Sebastián
-    cargo = models.CharField(max_length=100, blank=True, null=True, help_text="Ej. M1 Carpintero, Capataz")
-    turno_asignado = models.CharField(max_length=50, blank=True, null=True, help_text="Ej. 14x14 A, Día, Noche")
-    activo = models.BooleanField(default=True) # Para desactivar si los desvinculan
+    # Clasificación profesional
+    rol = models.CharField(max_length=20, choices=ROLES_CHOICES, default='OPERARIO')
+    especialidad = models.CharField(max_length=100, blank=True, null=True)
+    turno_asignado = models.CharField(max_length=20, choices=TURNO_CHOICES, default='DIA')
     
-    # Llaves foráneas recursivas para la cadena de mando (Agregadas por Seba)
+    # Jerarquía (Relaciones recursivas a la misma tabla)
     capataz_asignado = models.ForeignKey(
         'self', 
         on_delete=models.SET_NULL, 
-        null=True, 
         blank=True, 
-        related_name='trabajadores_capataz'
+        null=True, 
+        limit_choices_to={'rol': 'CAPATAZ'},
+        related_name='operarios_a_cargo'
     )
     supervisor_asignado = models.ForeignKey(
         'self', 
         on_delete=models.SET_NULL, 
-        null=True, 
         blank=True, 
-        related_name='trabajadores_supervisor'
+        null=True, 
+        limit_choices_to={'rol': 'SUPERVISOR'},
+        related_name='capataces_a_cargo'
     )
+    
+    activo = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.nombre_completo} ({self.rut})"
+        return f"{self.nombre_completo} ({self.rut}) - {self.get_rol_display()}"
 
 
 class Articulo(models.Model):
