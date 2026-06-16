@@ -68,6 +68,8 @@ class Articulo(models.Model):
         ('CONSUMIBLE', 'Consumible (No se devuelve)'),
     ]
 
+    
+
     nombre = models.CharField(max_length=150)
     marca = models.CharField(max_length=100, blank=True, null=True)
     codigo_producto = models.CharField(max_length=100, blank=True, null=True)
@@ -86,6 +88,7 @@ class Articulo(models.Model):
     stock_critico = models.IntegerField(default=10)
     
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+    estado = models.CharField(max_length=20, default='OPERATIVO')
 
     def __str__(self):
         return f"{self.nombre} ({self.get_tipo_control_display()})"

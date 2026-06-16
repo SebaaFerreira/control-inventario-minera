@@ -11,6 +11,8 @@ class CategoriaViewSet(viewsets.ModelViewSet):
     serializer_class = CategoriaSerializer
 
 class ArticuloViewSet(viewsets.ModelViewSet):
+    # 🛠️ SOLUCIÓN: Le devolvemos esta línea base para que el router no se pierda
+    queryset = Articulo.objects.all()
     serializer_class = ArticuloSerializer
     
     def get_queryset(self):

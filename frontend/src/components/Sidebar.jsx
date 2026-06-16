@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
+  Search, // <-- Añadimos el icono de lupa
   HardHat, 
   Nut, 
   Droplet, 
@@ -16,6 +17,7 @@ export default function Sidebar() {
 
   const menuItems = [
     { name: 'Resumen', path: '/', icon: <LayoutDashboard size={20} /> },
+    { name: 'Buscador Global', path: '/buscador', icon: <Search size={20} /> }, // <-- Agregado a la lista
     { name: 'EPP', path: '/categoria/epp', icon: <HardHat size={20} /> },
     { name: 'Fijaciones y Sujeciones', path: '/categoria/fijaciones', icon: <Nut size={20} /> },
     { name: 'Tuberías y Fitting', path: '/categoria/tuberias', icon: <Droplet size={20} /> },
@@ -23,7 +25,7 @@ export default function Sidebar() {
     { name: 'Herramientas Manuales', path: '/categoria/manuales', icon: <Wrench size={20} /> },
     { name: 'Herramientas Eléctricas', path: '/categoria/electricas', icon: <Zap size={20} /> },
     { name: 'LEIME', path: '/categoria/leime', icon: <ClipboardList size={20} /> },
-    { name: 'Personal / Operarios', path: '/trabajadores', icon: <Users size={20} /> }, // <-- Agregado
+    { name: 'Personal / Operarios', path: '/trabajadores', icon: <Users size={20} /> },
   ];
 
   return (

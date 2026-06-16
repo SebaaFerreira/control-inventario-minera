@@ -28,7 +28,7 @@ class ArticuloSerializer(serializers.ModelSerializer):
             'categoria', 'categoria_nombre', 'bodega', 'bodega_nombre',
             'tipo_control', 'unidad_medida', 'factor_conversion',
             'stock_actual', 'stock_critico',
-            'fecha_creacion'
+            'fecha_creacion', 'estado'
         ]
 
 class MovimientoSerializer(serializers.ModelSerializer):
