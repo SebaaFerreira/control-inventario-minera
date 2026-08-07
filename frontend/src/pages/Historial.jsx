@@ -17,9 +17,10 @@ export default function Historial() {
       fetch('http://127.0.0.1:8000/api/trabajadores/').then(res => res.json())
     ])
     .then(([movs, arts, trabs]) => {
-      setMovimientos(movs);
-      setArticulos(arts);
-      setTrabajadores(trabs);
+      // Ordenamos para que los movimientos más nuevos salgan arriba
+      setMovimientos(Array.isArray(movs) ? movs.sort((a, b) => b.id - a.id) : []);
+      setArticulos(Array.isArray(arts) ? arts : []);
+      setTrabajadores(Array.isArray(trabs) ? trabs : []);
       setCargando(false);
     })
     .catch(() => setCargando(false));
@@ -30,15 +31,15 @@ export default function Historial() {
   }, []);
 
   // Funciones para buscar los nombres según el ID
-  const getNombreArticulo = (id) => articulos.find(a => a.id === id)?.nombre || `ID: ${id}`;
+  const getNombreArticulo = (id) => articulos.find(a => a.id === id)?.nombre || `Insumo ID: ${id}`;
   const getCodigoArticulo = (id) => articulos.find(a => a.id === id)?.codigo_interno || '-';
-  const getNombreTrabajador = (id) => trabajadores.find(t => t.id === id)?.nombre_completo || `ID: ${id}`;
+  const getNombreTrabajador = (id) => trabajadores.find(t => t.id === id)?.nombre_completo || `Operario ID: ${id}`;
 
-  // Función de Excel (Misma tecnología robusta que usamos en Configuración)
+  // Función de Exportación a Excel
   const handleExportarExcel = () => {
-    if (movimientos.length === 0) return Swal.fire('Vacio', 'No hay registros', 'info');
+    if (movimientos.length === 0) return Swal.fire('Vacío', 'No hay registros para exportar', 'info');
     
-    const encabezados = ['ID Movimiento', 'Fecha', 'Tipo', 'Código Artículo', 'Artículo', 'Cantidad', 'Trabajador', 'Autoriza', 'Turno', 'Estado Préstamo'];
+    const encabezados = ['ID Mov', 'Fecha y Hora', 'Tipo Movimiento', 'Código Artículo', 'Artículo', 'Cantidad', 'Trabajador', 'Autoriza (Capataz)', 'Turno', 'Estado Préstamo'];
     
     const filas = movimientos.map(m => [
       m.id,
@@ -48,8 +49,8 @@ export default function Historial() {
       getNombreArticulo(m.articulo),
       m.cantidad,
       getNombreTrabajador(m.trabajador),
-      m.capataz_autoriza,
-      m.turno,
+      m.capataz_autoriza || 'N/A',
+      m.turno || 'N/A',
       m.estado_prestamo
     ]);
 
@@ -68,25 +69,33 @@ export default function Historial() {
     Swal.fire('✅ Exportado', 'Bitácora descargada en Excel.', 'success');
   };
 
-  // Función para marcar como devuelto
+  // =========================================================================
+  // 🔄 FUNCIÓN PARA RECIBIR DEVOLUCIONES DE CUALQUIER COSA
+  // =========================================================================
   const handleRecibirDevolucion = (movimiento) => {
     Swal.fire({
       title: '¿Confirmar Devolución?',
-      text: `Recibir ${movimiento.cantidad} unidad(es) de ${getNombreArticulo(movimiento.articulo)}`,
+      html: `Estás a punto de recibir <b>${movimiento.cantidad} unidad(es)</b> de <b>${getNombreArticulo(movimiento.articulo)}</b> que tenía <b>${getNombreTrabajador(movimiento.trabajador)}</b>.<br><br>Esto sumará el stock de vuelta a la bodega.`,
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'Sí, registrar ingreso',
-      confirmButtonColor: '#059669'
+      confirmButtonText: 'Sí, recibir insumo',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#d97706', // Color Ámbar
     }).then((result) => {
       if (result.isConfirmed) {
+        // Le mandamos el aviso por PATCH a Django de que esto se devolvió
         fetch(`http://127.0.0.1:8000/api/movimientos/${movimiento.id}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ estado_prestamo: 'DEVUELTO', fecha_devolucion: new Date().toISOString() })
-        }).then(() => {
-          Swal.fire('✅ Recibido', 'El stock ha vuelto a la bodega automáticamente.', 'success');
-          cargarDatos(); // Refrescamos la tabla
-        });
+          body: JSON.stringify({ estado_prestamo: 'DEVUELTO' })
+        }).then(async res => {
+          if (res.ok) {
+            Swal.fire('✅ Insumo Recibido', 'El stock ha vuelto a la bodega exitosamente.', 'success');
+            cargarDatos(); // Refrescamos la tabla para ver el cambio
+          } else {
+            Swal.fire('❌ Error', 'No se pudo registrar la devolución.', 'error');
+          }
+        }).catch(() => Swal.fire('❌ Error', 'Falla de conexión con el servidor.', 'error'));
       }
     });
   };
@@ -110,9 +119,9 @@ export default function Historial() {
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]">
         {cargando ? (
-          <div className="flex justify-center items-center h-48 text-slate-400 animate-pulse">Cargando bitácora...</div>
+          <div className="flex justify-center items-center h-48 text-slate-400 animate-pulse">Cargando bitácora de movimientos...</div>
         ) : movimientos.length === 0 ? (
-          <div className="flex justify-center items-center h-48 text-slate-500">No hay movimientos registrados.</div>
+          <div className="flex justify-center items-center h-48 text-slate-500">No hay movimientos registrados en bodega.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse whitespace-nowrap">
@@ -143,26 +152,31 @@ export default function Historial() {
 
                     <td className="p-4 font-medium text-slate-900">{getNombreArticulo(m.articulo)}</td>
                     <td className="p-4 text-center font-bold">{m.cantidad}</td>
-                    <td className="p-4">{getNombreTrabajador(m.trabajador)}</td>
+                    <td className="p-4 truncate max-w-[200px]" title={getNombreTrabajador(m.trabajador)}>
+                      {getNombreTrabajador(m.trabajador)}
+                    </td>
                     
                     <td className="p-4 text-center">
                       <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        m.estado_prestamo === 'PENDIENTE' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                        m.estado_prestamo === 'PENDIENTE' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
                         m.estado_prestamo === 'DEVUELTO' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                        'bg-slate-100 text-slate-500'
+                        'bg-slate-100 text-slate-500 border border-slate-200'
                       }`}>
                         {m.estado_prestamo}
                       </span>
                     </td>
 
                     <td className="p-4 text-center">
-                      {m.estado_prestamo === 'PENDIENTE' && (
+                      {/* 👇 AHORA EL BOTÓN APARECE PARA CUALQUIER SALIDA QUE NO HAYA SIDO DEVUELTA AÚN 👇 */}
+                      {(m.tipo_movimiento === 'SALIDA' && m.estado_prestamo !== 'DEVUELTO') ? (
                         <button 
                           onClick={() => handleRecibirDevolucion(m)}
                           className="flex items-center justify-center gap-1 bg-amber-500 text-white px-3 py-1.5 rounded hover:bg-amber-600 transition font-medium text-xs mx-auto shadow-sm"
                         >
-                          <CheckCircle size={14} /> Recibir
+                          <RefreshCcw size={14} /> Recibir
                         </button>
+                      ) : (
+                        <span className="text-slate-300 text-xs">-</span>
                       )}
                     </td>
                   </tr>

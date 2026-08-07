@@ -33,24 +33,38 @@ class MovimientoViewSet(viewsets.ModelViewSet):
     serializer_class = MovimientoSerializer
 
     def perform_create(self, serializer):
+        # 1. Miramos el stock ANTES de guardar (por si tu models.py lo descuenta solo)
+        articulo = serializer.validated_data['articulo']
+        stock_antes = articulo.stock_actual
+
+        # 2. Guardamos el movimiento en la DB
         movimiento = serializer.save()
+
+        # 3. Refrescamos el artículo para ver si models.py ya hizo el descuento
+        articulo.refresh_from_db()
+        
         if movimiento.tipo_movimiento == 'SALIDA':
-            articulo = movimiento.articulo
-            articulo.stock_actual -= movimiento.cantidad
-            if articulo.stock_actual < 0:
-                articulo.stock_actual = 0
-            articulo.save()
+            # Si el stock no ha cambiado, significa que models.py NO hizo el trabajo. Lo restamos manualmente.
+            if articulo.stock_actual == stock_antes:
+                articulo.stock_actual -= movimiento.cantidad
+                if articulo.stock_actual < 0:
+                    articulo.stock_actual = 0
+                articulo.save()
 
     def perform_update(self, serializer):
         movimiento_viejo = self.get_object()
         estaba_devuelto = (movimiento_viejo.estado_prestamo == 'DEVUELTO')
+        stock_antes = movimiento_viejo.articulo.stock_actual
         
         movimiento_nuevo = serializer.save()
+        movimiento_nuevo.articulo.refresh_from_db()
         
         if not estaba_devuelto and movimiento_nuevo.estado_prestamo == 'DEVUELTO':
-            articulo = movimiento_nuevo.articulo
-            articulo.stock_actual += movimiento_nuevo.cantidad
-            articulo.save()
+            # Verificamos si models.py ya sumó el stock de vuelta
+            if movimiento_nuevo.articulo.stock_actual == stock_antes:
+                articulo = movimiento_nuevo.articulo
+                articulo.stock_actual += movimiento_nuevo.cantidad
+                articulo.save()
 
 class TrabajadorViewSet(viewsets.ModelViewSet):
     queryset = Trabajador.objects.all()
@@ -86,7 +100,6 @@ def importar_respaldo(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-
 # =========================================================
 # 🟢 MEGA-IMPORTADOR INTELIGENTE (TARJA EXCEL MARICUNGA)
 # =========================================================
@@ -97,7 +110,6 @@ def importar_excel_trabajadores(request):
             return JsonResponse({'error': 'No se adjuntó ningún archivo.'}, status=400)
 
         archivo = request.FILES['archivo']
-        # data_only=True extrae el texto final y omite las fórmulas macro
         wb = openpyxl.load_workbook(archivo, data_only=True)
 
         indices = {}
@@ -106,21 +118,13 @@ def importar_excel_trabajadores(request):
         hoja_datos = None
         fila_inicio = 0
 
-        # 1. ESCANEAR TODAS LAS HOJAS DEL LIBRO (El problema era wb.active)
         for sheet in wb.worksheets:
-            # Extraemos las primeras 50 filas para analizarlas rápido
             filas_prueba = list(sheet.iter_rows(values_only=True, max_row=50))
-            
             for idx_fila, row in enumerate(filas_prueba):
-                # Limpiamos todos los valores de la fila
                 row_strs = [str(c).strip().upper() if c is not None else "" for c in row]
-                
-                # ¿Están las columnas mágicas en esta fila?
                 if any("RUT" in c for c in row_strs) and any("NOMBRE" in c for c in row_strs):
                     hoja_datos = sheet
-                    fila_inicio = idx_fila + 1 # Empezamos a leer la fila que sigue (los datos reales)
-                    
-                    # Mapeamos los índices exactos de la foto de tu Excel
+                    fila_inicio = idx_fila + 1
                     for idx_col, val in enumerate(row_strs):
                         if "RUT" in val: indices['rut'] = idx_col
                         elif "NOMBRE" in val: indices['nombre'] = idx_col
@@ -131,18 +135,15 @@ def importar_excel_trabajadores(request):
                         elif "TELEFONO" in val: indices['telefono'] = idx_col
                         elif "TEST" in val: indices['test'] = idx_col
                         elif "HABITACION" in val: indices['habitacion'] = idx_col
-                    break # Rompe el ciclo de filas
+                    break
             if hoja_datos:
-                break # Rompe el ciclo de hojas porque ya encontramos la tabla
+                break
 
-        # Si después de revisar todo el libro no hay cabeceras
         if not hoja_datos:
             nombres_hojas = ", ".join(wb.sheetnames)
-            return JsonResponse({'error': f'No se encontró la tabla con RUT y NOMBRE en ninguna de estas pestañas: {nombres_hojas}'}, status=400)
+            return JsonResponse({'error': f'No se encontró la tabla con RUT y NOMBRE en: {nombres_hojas}'}, status=400)
 
-        # 2. PROCESAR LA HOJA CORRECTA
         filas_completas = list(hoja_datos.iter_rows(values_only=True))
-        
         for row in filas_completas[fila_inicio:]:
             def get_val(key):
                 if key in indices and indices[key] < len(row):
@@ -152,7 +153,6 @@ def importar_excel_trabajadores(request):
                 return ""
 
             rut_val = get_val('rut')
-            # Ignoramos si está vacio
             if not rut_val or rut_val == '':
                 continue
 
@@ -181,7 +181,7 @@ def importar_excel_trabajadores(request):
             else: actualizados += 1
 
         if creados == 0 and actualizados == 0:
-            return JsonResponse({'error': 'Encontramos los títulos, pero no pudimos leer ningún RUT válido debajo de ellos.'}, status=400)
+            return JsonResponse({'error': 'Encontramos los títulos, pero no pudimos leer ningún RUT válido debajo.'}, status=400)
 
         return JsonResponse({'mensaje': f'Trabajadores Nuevos: {creados} | Trabajadores Actualizados: {actualizados}'})
 
