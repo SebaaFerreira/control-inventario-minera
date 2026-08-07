@@ -7,10 +7,11 @@ export default function Trabajadores() {
   const [cargando, setCargando] = useState(true);
   const [mostrarModal, setMostrarModal] = useState(false);
 
-  // Campos formulario nuevo trabajador
+  // Campos formulario nuevo trabajador (Adaptados al backend)
   const [rut, setRut] = useState('');
   const [nombre, setNombre] = useState('');
-  const [rol, setRol] = useState('');
+  const [rol, setRol] = useState('OPERARIO'); // <- Ahora tiene un valor por defecto válido
+  const [especialidad, setEspecialidad] = useState(''); // <- Nuevo campo libre
   const [turno, setTurno] = useState('DIA');
 
   const cargarTrabajadores = () => {
@@ -22,11 +23,9 @@ export default function Trabajadores() {
         setCargando(false);
       })
       .catch(() => {
-        // Resguardo local si el backend no responde
         setTrabajadores([
-          { id: 1, rut: '12.345.678-9', nombre_completo: 'Juan Pérez', rol: 'Operario Rigger', turno_asignado: 'DIA' },
-          { id: 2, rut: '98.765.432-1', nombre_completo: 'Pedro Morales', rol: 'Capataz de Obras', turno_asignado: 'NOCHE' },
-          { id: 3, rut: '17.894.231-k', nombre_completo: 'Romina Silva', rol: 'Soldador Calificado', turno_asignado: 'A' }
+          { id: 1, rut: '12.345.678-9', nombre_completo: 'Juan Pérez', rol: 'OPERARIO', especialidad: 'Rigger', turno_asignado: 'DIA' },
+          { id: 2, rut: '98.765.432-1', nombre_completo: 'Pedro Morales', rol: 'CAPATAZ', especialidad: 'Obras Civiles', turno_asignado: 'NOCHE' }
         ]);
         setCargando(false);
       });
@@ -42,6 +41,7 @@ export default function Trabajadores() {
       rut,
       nombre_completo: nombre,
       rol,
+      especialidad, // Enviamos el cargo libre al backend
       turno_asignado: turno
     };
 
@@ -54,17 +54,17 @@ export default function Trabajadores() {
       if (res.ok) {
         Swal.fire('✅ Éxito', 'Trabajador registrado en la base de datos.', 'success');
         setMostrarModal(false);
-        setRut(''); setNombre(''); setRol(''); setTurno('DIA');
+        setRut(''); setNombre(''); setRol('OPERARIO'); setEspecialidad(''); setTurno('DIA');
         cargarTrabajadores();
       } else {
-        Swal.fire('❌ Error', 'No se pudo crear el registro.', 'error');
+        Swal.fire('❌ Error', 'No se pudo crear el registro. Verifica que el RUT no esté duplicado.', 'error');
       }
     })
     .catch(() => {
       Swal.fire('⚠️ Modo Local', 'Operario agregado localmente.', 'warning');
       setTrabajadores([...trabajadores, { id: Date.now(), ...nuevoOperario }]);
       setMostrarModal(false);
-      setRut(''); setNombre(''); setRol(''); setTurno('DIA');
+      setRut(''); setNombre(''); setRol('OPERARIO'); setEspecialidad(''); setTurno('DIA');
     });
   };
 
@@ -94,7 +94,8 @@ export default function Trabajadores() {
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm font-semibold">
                 <th className="p-4">RUT</th>
                 <th className="p-4">Nombre Completo</th>
-                <th className="p-4">Cargo / Rol</th>
+                <th className="p-4">Nivel / Jerarquía</th>
+                <th className="p-4">Especialidad (Cargo)</th>
                 <th className="p-4 text-center">Turno Asignado</th>
               </tr>
             </thead>
@@ -103,9 +104,18 @@ export default function Trabajadores() {
                 <tr key={t.id} className="hover:bg-slate-50/50 transition">
                   <td className="p-4 font-mono font-semibold text-slate-600">{t.rut}</td>
                   <td className="p-4 font-medium text-slate-900">{t.nombre_completo}</td>
-                  <td className="p-4 text-slate-500">{t.rol}</td>
+                  <td className="p-4 text-slate-500">
+                    <span className={`px-2 py-1 rounded text-xs font-bold ${
+                      t.rol === 'CAPATAZ' ? 'bg-indigo-100 text-indigo-700' :
+                      t.rol === 'SUPERVISOR' ? 'bg-amber-100 text-amber-700' :
+                      'bg-slate-100 text-slate-700'
+                    }`}>
+                      {t.rol}
+                    </span>
+                  </td>
+                  <td className="p-4 text-slate-600">{t.especialidad || 'N/A'}</td>
                   <td className="p-4 text-center">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
                       {t.turno_asignado}
                     </span>
                   </td>
@@ -119,13 +129,14 @@ export default function Trabajadores() {
       {/* 🎬 MODAL FLOTANTE OSCURO: REGISTRAR OPERARIO */}
       {mostrarModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1e293b] text-white w-full max-w-xl rounded-xl shadow-2xl border border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-[#1e293b] text-white w-full max-w-2xl rounded-xl shadow-2xl border border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center bg-[#111827] px-6 py-4 border-b border-slate-700">
               <h3 className="text-xl font-bold flex items-center gap-2 text-emerald-400">
-                <UserPlus size={22} /> Registrar Nuevo Operario
+                <UserPlus size={22} /> Registrar Nuevo Trabajador
               </h3>
               <button onClick={() => setMostrarModal(false)} className="text-slate-400 hover:text-white transition"><X size={22} /></button>
             </div>
+            
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -143,14 +154,27 @@ export default function Trabajadores() {
                   </select>
                 </div>
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Nombre Completo *</label>
-                <input type="text" required placeholder="Ej. Juan Carlos Pérez" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded-md p-2.5 text-white focus:outline-none focus:border-emerald-500" />
+                <input type="text" required placeholder="Ej. Camilo Perez" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded-md p-2.5 text-white focus:outline-none focus:border-emerald-500" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Cargo o Rol en Faena *</label>
-                <input type="text" required placeholder="Ej. Soldador, Rigger, Capataz" value={rol} onChange={(e) => setRol(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded-md p-2.5 text-white focus:outline-none focus:border-emerald-500" />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Nivel de Seguridad (Rol) *</label>
+                  <select value={rol} onChange={(e) => setRol(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded-md p-2.5 text-white focus:outline-none focus:border-emerald-500">
+                    <option value="OPERARIO">Operario / Terreno</option>
+                    <option value="CAPATAZ">Capataz</option>
+                    <option value="SUPERVISOR">Supervisor</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Especialidad (Texto Libre)</label>
+                  <input type="text" placeholder="Ej. Soldador, Eléctrico, Rigger..." value={especialidad} onChange={(e) => setEspecialidad(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded-md p-2.5 text-white focus:outline-none focus:border-emerald-500" />
+                </div>
               </div>
+
               <div className="pt-4 flex justify-end gap-3 border-t border-slate-700">
                 <button type="button" onClick={() => setMostrarModal(false)} className="px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-500 transition font-medium">Cancelar</button>
                 <button type="submit" className="px-5 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-500 transition font-semibold shadow-md">Guardar Registro</button>

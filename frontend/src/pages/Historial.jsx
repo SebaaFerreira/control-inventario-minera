@@ -1,104 +1,91 @@
 import { useState, useEffect } from 'react';
-import { FileSpreadsheet, Clock, ArrowLeftRight } from 'lucide-react';
+import { History, Download, ArrowUpRight, ArrowDownRight, RefreshCcw, CheckCircle } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function Historial() {
   const [movimientos, setMovimientos] = useState([]);
+  const [articulos, setArticulos] = useState([]);
+  const [trabajadores, setTrabajadores] = useState([]);
   const [cargando, setCargando] = useState(true);
 
+  const cargarDatos = () => {
+    setCargando(true);
+    // Hacemos 3 llamadas simultáneas para cruzar los IDs con los nombres reales
+    Promise.all([
+      fetch('http://127.0.0.1:8000/api/movimientos/').then(res => res.json()),
+      fetch('http://127.0.0.1:8000/api/articulos/').then(res => res.json()),
+      fetch('http://127.0.0.1:8000/api/trabajadores/').then(res => res.json())
+    ])
+    .then(([movs, arts, trabs]) => {
+      setMovimientos(movs);
+      setArticulos(arts);
+      setTrabajadores(trabs);
+      setCargando(false);
+    })
+    .catch(() => setCargando(false));
+  };
+
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/api/movimientos/')
-      .then(res => res.json())
-      .then(data => {
-        setMovimientos(data);
-        setCargando(false);
-      })
-      .catch(() => {
-        // Mock de respaldo por si el backend está desconectado temporalmente
-        setMovimientos([
-          { id: 1, articulo_nombre: 'Guantes de Cabritilla', tipo_movimiento: 'SALIDA', cantidad: 5, trabajador_nombre: 'Juan Pérez', fecha_hora: '2026-06-16T10:00:00Z', devuelto: false },
-          { id: 2, articulo_nombre: 'Arnés de Seguridad Altura', tipo_movimiento: 'SALIDA', cantidad: 1, trabajador_nombre: 'Miguel Ángel', fecha_hora: '2026-06-15T14:30:00Z', devuelto: true },
-          { id: 3, articulo_nombre: 'Taladro Percutor 18V', tipo_movimiento: 'SALIDA', cantidad: 1, trabajador_nombre: 'Romina Silva', fecha_hora: '2026-06-16T11:00:00Z', devuelto: false }
-        ]);
-        setCargando(false);
-      });
+    cargarDatos();
   }, []);
 
-  // =========================================================================
-  // 📥 LÓGICA DE EXPORTACIÓN A EXCEL (CSV COMPATIBLE)
-  // =========================================================================
-  const exportarReporteExcel = () => {
-    if (movimientos.length === 0) {
-      Swal.fire('⚠️ Sin registros', 'No hay datos en la bitácora para poder exportar.', 'info');
-      return;
-    }
+  // Funciones para buscar los nombres según el ID
+  const getNombreArticulo = (id) => articulos.find(a => a.id === id)?.nombre || `ID: ${id}`;
+  const getCodigoArticulo = (id) => articulos.find(a => a.id === id)?.codigo_interno || '-';
+  const getNombreTrabajador = (id) => trabajadores.find(t => t.id === id)?.nombre_completo || `ID: ${id}`;
 
-    // 1. Definimos los títulos de las columnas de la planilla
-    const encabezados = ['ID Movimiento', 'Fecha y Hora', 'Artículo / Insumo', 'Tipo de Movimiento', 'Cantidad', 'Operario / Trabajador', 'Estado Retornable'];
-
-    // 2. Mapeamos cada registro a una fila de Excel limpiando los campos
+  // Función de Excel (Misma tecnología robusta que usamos en Configuración)
+  const handleExportarExcel = () => {
+    if (movimientos.length === 0) return Swal.fire('Vacio', 'No hay registros', 'info');
+    
+    const encabezados = ['ID Movimiento', 'Fecha', 'Tipo', 'Código Artículo', 'Artículo', 'Cantidad', 'Trabajador', 'Autoriza', 'Turno', 'Estado Préstamo'];
+    
     const filas = movimientos.map(m => [
       m.id,
-      m.fecha_hora ? new Date(m.fecha_hora).toLocaleString() : 'No registrada',
-      m.articulo_nombre || `ID Artículo: ${m.articulo}`,
+      new Date(m.fecha_hora).toLocaleString(),
       m.tipo_movimiento,
+      getCodigoArticulo(m.articulo),
+      getNombreArticulo(m.articulo),
       m.cantidad,
-      m.trabajador_nombre || `ID Trabajador: ${m.trabajador}`,
-      m.tipo_movimiento === 'SALIDA' ? (m.devuelto ? 'Devuelto y Recibido' : 'Pendiente de Entrega') : 'N/A'
+      getNombreTrabajador(m.trabajador),
+      m.capataz_autoriza,
+      m.turno,
+      m.estado_prestamo
     ]);
 
-    // 3. Unimos todo usando punto y coma (separador por defecto de Excel en español) y comillas de seguridad
     const contenidoCSV = [
       encabezados.join(';'),
-      ...filas.map(fila => fila.map(valor => `"${String(valor).replace(/"/g, '""')}"`).join(';'))
+      ...filas.map(fila => fila.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
     ].join('\n');
 
-    // 4. Creamos el archivo binario (Blob) con la firma '\uFEFF' (BOM UTF-8) para que reconozca tildes y la Ñ
     const blob = new Blob(['\uFEFF' + contenidoCSV], { type: 'text/csv;charset=utf-8;' });
-    const urlDescarga = URL.createObjectURL(blob);
-    
-    // 5. Creamos un enlace invisible en el navegador para forzar la descarga de la planilla
     const enlace = document.createElement('a');
-    const fechaHoy = new Date().toISOString().split('T')[0];
-    enlace.setAttribute('href', urlDescarga);
-    enlace.setAttribute('download', `Reporte_Movimientos_Promet_${fechaHoy}.csv`);
-    enlace.style.visibility = 'hidden';
-    
+    enlace.href = URL.createObjectURL(blob);
+    enlace.download = `Bitacora_Movimientos_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(enlace);
     enlace.click();
     document.body.removeChild(enlace);
-
-    Swal.fire('📥 Exportación Exitosa', 'La planilla de movimientos se descargó correctamente.', 'success');
+    Swal.fire('✅ Exportado', 'Bitácora descargada en Excel.', 'success');
   };
 
-  const handleProcesarDevolucion = (id) => {
+  // Función para marcar como devuelto
+  const handleRecibirDevolucion = (movimiento) => {
     Swal.fire({
       title: '¿Confirmar Devolución?',
-      text: '¿Esta herramienta retornable está ingresando de vuelta al pañol?',
+      text: `Recibir ${movimiento.cantidad} unidad(es) de ${getNombreArticulo(movimiento.articulo)}`,
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'Sí, recibir en Bodega',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#64748b'
+      confirmButtonText: 'Sí, registrar ingreso',
+      confirmButtonColor: '#059669'
     }).then((result) => {
       if (result.isConfirmed) {
-        fetch(`http://127.0.0.1:8000/api/movimientos/${id}/`, {
+        fetch(`http://127.0.0.1:8000/api/movimientos/${movimiento.id}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ devuelto: true })
-        })
-        .then(response => {
-          if (response.ok) {
-            Swal.fire('✅ Recibido', 'Devolución registrada con éxito. Stock restaurado.', 'success');
-            setMovimientos(prev => prev.map(mov => mov.id === id ? { ...mov, devuelto: true } : mov));
-          } else {
-            Swal.fire('❌ Error', 'No se pudo guardar en el servidor.', 'error');
-          }
-        })
-        .catch(() => {
-          Swal.fire('⚠️ Modo Local', 'Devolución simulada con éxito.', 'warning');
-          setMovimientos(prev => prev.map(mov => mov.id === id ? { ...mov, devuelto: true } : mov));
+          body: JSON.stringify({ estado_prestamo: 'DEVUELTO', fecha_devolucion: new Date().toISOString() })
+        }).then(() => {
+          Swal.fire('✅ Recibido', 'El stock ha vuelto a la bodega automáticamente.', 'success');
+          cargarDatos(); // Refrescamos la tabla
         });
       }
     });
@@ -106,73 +93,83 @@ export default function Historial() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800">Historial de Consumos y Movimientos</h2>
-          <p className="text-slate-500 mt-1">Bitácora general de entradas, salidas y devoluciones de herramientas en faena.</p>
+          <h2 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+            <History className="text-amber-500" size={32} />
+            Bitácora General de Movimientos
+          </h2>
+          <p className="text-slate-500 mt-1">Historial completo de salidas, entradas y devoluciones de la faena.</p>
         </div>
         
-        {/* 🛠️ BOTÓN DE EXPORTACIÓN A EXCEL */}
-        <button
-          onClick={exportarReporteExcel}
-          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition shadow-sm font-semibold text-sm"
-        >
-          <FileSpreadsheet size={18} />
-          Exportar Reporte (Excel)
+        <button onClick={handleExportarExcel} className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition shadow-sm font-semibold">
+          <Download size={20} />
+          Exportar a Excel
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden min-h-[300px]">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]">
         {cargando ? (
-          <p className="p-6 text-center text-slate-500 animate-pulse">Cargando bitácora de movimientos...</p>
+          <div className="flex justify-center items-center h-48 text-slate-400 animate-pulse">Cargando bitácora...</div>
         ) : movimientos.length === 0 ? (
-          <p className="p-6 text-center text-slate-500">No se registran movimientos en el historial todavía.</p>
+          <div className="flex justify-center items-center h-48 text-slate-500">No hay movimientos registrados.</div>
         ) : (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
-                <th className="p-4 font-semibold">Fecha / Hora</th>
-                <th className="p-4 font-semibold">Artículo</th>
-                <th className="p-4 font-semibold">Tipo</th>
-                <th className="p-4 text-center font-semibold">Cantidad</th>
-                <th className="p-4 font-semibold">Operario</th>
-                <th className="p-4 text-center font-semibold">Estado Retornable</th>
-              </tr>
-            </thead>
-            <tbody className="text-slate-700 text-sm">
-              {movimientos.map((m) => (
-                <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition">
-                  <td className="p-4 text-slate-500">
-                    {m.fecha_hora ? new Date(m.fecha_hora).toLocaleString() : 'Fecha no registrada'}
-                  </td>
-                  <td className="p-4 font-medium text-slate-800">{m.articulo_nombre || `Artículo ID: ${m.articulo}`}</td>
-                  <td className="p-4">
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                      m.tipo_movimiento === 'SALIDA' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                    }`}>{m.tipo_movimiento}</span>
-                  </td>
-                  <td className="p-4 text-center font-bold">{m.cantidad}</td>
-                  <td className="p-4">{m.trabajador_nombre || `Operario ID: ${m.trabajador}`}</td>
-                  <td className="p-4 text-center">
-                    {m.tipo_movimiento === 'SALIDA' ? (
-                      m.devuelto ? (
-                        <span className="text-green-600 font-semibold flex items-center justify-center gap-1">✔ Recibido</span>
-                      ) : (
-                        <button 
-                          onClick={() => handleProcesarDevolucion(m.id)}
-                          className="px-3 py-1 bg-amber-500 text-slate-900 rounded text-xs font-bold hover:bg-amber-600 transition shadow-sm"
-                        >
-                          🔄 Pendiente (Recibir)
-                        </button>
-                      )
-                    ) : (
-                      <span className="text-slate-400">N/A</span>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse whitespace-nowrap">
+              <thead>
+                <tr className="bg-slate-800 text-white text-sm">
+                  <th className="p-4 font-semibold">Fecha y Hora</th>
+                  <th className="p-4 font-semibold">Tipo</th>
+                  <th className="p-4 font-semibold">Artículo</th>
+                  <th className="p-4 text-center font-semibold">Cant.</th>
+                  <th className="p-4 font-semibold">Operario</th>
+                  <th className="p-4 text-center font-semibold">Estado Préstamo</th>
+                  <th className="p-4 text-center font-semibold">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="text-slate-700 text-sm divide-y divide-slate-100">
+                {movimientos.map((m) => (
+                  <tr key={m.id} className="hover:bg-slate-50 transition">
+                    <td className="p-4 text-slate-500">
+                      {new Date(m.fecha_hora).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                    </td>
+                    
+                    <td className="p-4 font-bold">
+                      {m.tipo_movimiento === 'SALIDA' ? <span className="text-blue-600 flex items-center gap-1"><ArrowUpRight size={16}/> Salida</span> :
+                       m.tipo_movimiento === 'ENTRADA' ? <span className="text-emerald-600 flex items-center gap-1"><ArrowDownRight size={16}/> Entrada</span> :
+                       m.tipo_movimiento === 'DEVOLUCION' ? <span className="text-amber-600 flex items-center gap-1"><RefreshCcw size={16}/> Devolución</span> :
+                       <span className="text-red-600">Baja</span>}
+                    </td>
+
+                    <td className="p-4 font-medium text-slate-900">{getNombreArticulo(m.articulo)}</td>
+                    <td className="p-4 text-center font-bold">{m.cantidad}</td>
+                    <td className="p-4">{getNombreTrabajador(m.trabajador)}</td>
+                    
+                    <td className="p-4 text-center">
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${
+                        m.estado_prestamo === 'PENDIENTE' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                        m.estado_prestamo === 'DEVUELTO' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                        'bg-slate-100 text-slate-500'
+                      }`}>
+                        {m.estado_prestamo}
+                      </span>
+                    </td>
+
+                    <td className="p-4 text-center">
+                      {m.estado_prestamo === 'PENDIENTE' && (
+                        <button 
+                          onClick={() => handleRecibirDevolucion(m)}
+                          className="flex items-center justify-center gap-1 bg-amber-500 text-white px-3 py-1.5 rounded hover:bg-amber-600 transition font-medium text-xs mx-auto shadow-sm"
+                        >
+                          <CheckCircle size={14} /> Recibir
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

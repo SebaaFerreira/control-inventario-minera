@@ -5,8 +5,9 @@ import Salidas from './pages/Salidas';
 import Historial from './pages/Historial';
 import Dashboard from './pages/Dashboard';
 import Trabajadores from './pages/Trabajadores';
-// Importación del nuevo Buscador Data Table
 import Buscador from './pages/Buscador';
+import Configuracion from './pages/Configuracion';
+import CargosActivos from './pages/CargosActivos';
 
 export default function App() {
   return (
@@ -17,14 +18,13 @@ export default function App() {
         <div className="flex-1 ml-64">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            
-            {/* NUEVA RUTA PARA EL BUSCADOR */}
             <Route path="/buscador" element={<Buscador />} />
-            
             <Route path="/categoria/:categoriaId" element={<VistaCategoria />} />
             <Route path="/salidas" element={<Salidas />} />
             <Route path="/historial" element={<Historial />} />
             <Route path="/trabajadores" element={<Trabajadores />} />
+            <Route path="/cargos" element={<CargosActivos />} />
+            <Route path="/configuracion" element={<Configuracion />} />
           </Routes>
         </div>
       </div>

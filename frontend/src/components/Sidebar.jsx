@@ -1,15 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
-  Search, // <-- Añadimos el icono de lupa
-  HardHat, 
-  Nut, 
-  Droplet, 
-  FlaskConical, 
-  Wrench, 
-  Zap,
-  ClipboardList,
-  Users 
+  LayoutDashboard, Search, HardHat, Nut, Droplet, 
+  FlaskConical, Wrench, Zap, ClipboardList, Users, Settings, UserCheck, History
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -17,15 +9,17 @@ export default function Sidebar() {
 
   const menuItems = [
     { name: 'Resumen', path: '/', icon: <LayoutDashboard size={20} /> },
-    { name: 'Buscador Global', path: '/buscador', icon: <Search size={20} /> }, // <-- Agregado a la lista
+    { name: 'Buscador Global', path: '/buscador', icon: <Search size={20} /> },
+    { name: 'Historial y Devoluciones', path: '/historial', icon: <History size={20} /> },
+    { name: 'Ficha de Cargos', path: '/cargos', icon: <UserCheck size={20} /> },
     { name: 'EPP', path: '/categoria/epp', icon: <HardHat size={20} /> },
     { name: 'Fijaciones y Sujeciones', path: '/categoria/fijaciones', icon: <Nut size={20} /> },
     { name: 'Tuberías y Fitting', path: '/categoria/tuberias', icon: <Droplet size={20} /> },
     { name: 'Sustancias Peligrosas', path: '/categoria/sustancias', icon: <FlaskConical size={20} /> },
     { name: 'Herramientas Manuales', path: '/categoria/manuales', icon: <Wrench size={20} /> },
     { name: 'Herramientas Eléctricas', path: '/categoria/electricas', icon: <Zap size={20} /> },
-    { name: 'LEIME', path: '/categoria/leime', icon: <ClipboardList size={20} /> },
     { name: 'Personal / Operarios', path: '/trabajadores', icon: <Users size={20} /> },
+    { name: 'Reportes y Config', path: '/configuracion', icon: <Settings size={20} /> },
   ];
 
   return (

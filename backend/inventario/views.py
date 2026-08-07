@@ -1,3 +1,9 @@
+import os
+import tempfile
+from io import StringIO
+from django.core.management import call_command
+from django.http import HttpResponse, JsonResponse
+from rest_framework.decorators import api_view
 from rest_framework import viewsets
 from .models import Bodega, Categoria, Articulo, Movimiento, Trabajador
 from .serializers import BodegaSerializer, CategoriaSerializer, ArticuloSerializer, MovimientoSerializer, TrabajadorSerializer
@@ -11,51 +17,37 @@ class CategoriaViewSet(viewsets.ModelViewSet):
     serializer_class = CategoriaSerializer
 
 class ArticuloViewSet(viewsets.ModelViewSet):
-    # 🛠️ SOLUCIÓN: Le devolvemos esta línea base para que el router no se pierda
     queryset = Articulo.objects.all()
     serializer_class = ArticuloSerializer
     
     def get_queryset(self):
-        # 1. Traemos todos los artículos por defecto
         queryset = Articulo.objects.all()
-        
-        # 2. Capturamos lo que React nos envíe en la URL (ej: ?categoria=epp)
         categoria = self.request.query_params.get('categoria', None)
-        
-        # 3. Si hay una categoría en la URL, filtramos la base de datos
         if categoria is not None:
             queryset = queryset.filter(categoria__iexact=categoria)
-            
         return queryset
 
 class MovimientoViewSet(viewsets.ModelViewSet):
-    # Ordenamos los movimientos para que aparezcan los más recientes primero
     queryset = Movimiento.objects.all().order_by('-id')
     serializer_class = MovimientoSerializer
 
-    # ➖ LÓGICA 1: Cuando se CREA una salida (Descontar stock de la bodega)
     def perform_create(self, serializer):
         movimiento = serializer.save()
-        
         if movimiento.tipo_movimiento == 'SALIDA':
             articulo = movimiento.articulo
             articulo.stock_actual -= movimiento.cantidad
-            
-            # Control de seguridad para evitar que el inventario quede en negativo
             if articulo.stock_actual < 0:
                 articulo.stock_actual = 0
-                
             articulo.save()
 
-    # ➕ LÓGICA 2: Cuando se ACTUALIZA a devuelto (Restaurar stock en el pañol)
     def perform_update(self, serializer):
         movimiento_viejo = self.get_object()
-        estaba_devuelto = movimiento_viejo.devuelto
+        # FIX: Adaptado a tu nuevo modelo que usa estado_prestamo en vez del booleano devuelto
+        estaba_devuelto = (movimiento_viejo.estado_prestamo == 'DEVUELTO')
         
         movimiento_nuevo = serializer.save()
         
-        # Si antes no estaba marcado como devuelto y ahora el bodeguero confirmó la recepción
-        if not estaba_devuelto and movimiento_nuevo.devuelto:
+        if not estaba_devuelto and movimiento_nuevo.estado_prestamo == 'DEVUELTO':
             articulo = movimiento_nuevo.articulo
             articulo.stock_actual += movimiento_nuevo.cantidad
             articulo.save()
@@ -63,3 +55,46 @@ class MovimientoViewSet(viewsets.ModelViewSet):
 class TrabajadorViewSet(viewsets.ModelViewSet):
     queryset = Trabajador.objects.all()
     serializer_class = TrabajadorSerializer
+
+
+# =========================================================
+# 📥 LÓGICA DE EXPORTACIÓN E IMPORTACIÓN (SNAPSHOTS JSON)
+# =========================================================
+
+@api_view(['GET'])
+def exportar_respaldo(request):
+    try:
+        out = StringIO()
+        # Genera un snapshot exacto de todas las tablas y IDs de 'inventario'
+        call_command('dumpdata', 'inventario', format='json', indent=4, stdout=out)
+        
+        response = HttpResponse(out.getvalue(), content_type='application/json')
+        response['Content-Disposition'] = 'attachment; filename="respaldo_bodega.json"'
+        return response
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+def importar_respaldo(request):
+    try:
+        if 'archivo' not in request.FILES:
+            return JsonResponse({'error': 'No se adjuntó ningún archivo.'}, status=400)
+
+        archivo = request.FILES['archivo']
+
+        # Guardamos el archivo subido en una ruta temporal de Windows/Linux
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as tmp:
+            for chunk in archivo.chunks():
+                tmp.write(chunk)
+            tmp_path = tmp.name
+
+        # Inyectamos el JSON directamente a la base de datos, restaurando IDs exactos
+        call_command('loaddata', tmp_path)
+
+        # Limpiamos borrando el archivo temporal
+        os.remove(tmp_path)
+
+        return JsonResponse({'mensaje': 'Base de datos restaurada con éxito.'})
+    except Exception as e:
+        return JsonResponse({'error': f"Error al restaurar: {str(e)}"}, status=500)
