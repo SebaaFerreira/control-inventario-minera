@@ -38,25 +38,26 @@ class Trabajador(models.Model):
     especialidad = models.CharField(max_length=100, blank=True, null=True)
     turno_asignado = models.CharField(max_length=20, choices=TURNO_CHOICES, default='DIA')
     
-    # Jerarquía (Relaciones recursivas a la misma tabla)
+    # Jerarquía
     capataz_asignado = models.ForeignKey(
-        'self', 
-        on_delete=models.SET_NULL, 
-        blank=True, 
-        null=True, 
-        limit_choices_to={'rol': 'CAPATAZ'},
-        related_name='operarios_a_cargo'
+        'self', on_delete=models.SET_NULL, blank=True, null=True, 
+        limit_choices_to={'rol': 'CAPATAZ'}, related_name='operarios_a_cargo'
     )
     supervisor_asignado = models.ForeignKey(
-        'self', 
-        on_delete=models.SET_NULL, 
-        blank=True, 
-        null=True, 
-        limit_choices_to={'rol': 'SUPERVISOR'},
-        related_name='capataces_a_cargo'
+        'self', on_delete=models.SET_NULL, blank=True, null=True, 
+        limit_choices_to={'rol': 'SUPERVISOR'}, related_name='capataces_a_cargo'
     )
     
     activo = models.BooleanField(default=True)
+
+    # =======================================================
+    # 🆕 NUEVOS CAMPOS (IMPORTACIÓN DE TARJA EXCEL)
+    # =======================================================
+    estado_asistencia = models.CharField(max_length=50, blank=True, null=True, default='TURNO')
+    sistema_turno = models.CharField(max_length=50, blank=True, null=True) # Ej: 14x14
+    telefono = models.CharField(max_length=50, blank=True, null=True)
+    test_esfuerzo = models.CharField(max_length=50, blank=True, null=True)
+    habitacion = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self):
         return f"{self.nombre_completo} ({self.rut}) - {self.get_rol_display()}"
