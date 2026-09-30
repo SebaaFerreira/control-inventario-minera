@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useRecords } from '../useRecords';
+import { apiFetch as fetch } from '../api';
+import { useState, useRef } from 'react';
 import { Plus, UserPlus, X } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function Trabajadores() {
-  const [trabajadores, setTrabajadores] = useState([]);
-  const [cargando, setCargando] = useState(true);
+  const enviando = useRef(false);
+  const [procesando, setProcesando] = useState(false);
   const [mostrarModal, setMostrarModal] = useState(false);
 
   // Campos formulario nuevo trabajador (Adaptados al backend)
@@ -14,29 +16,14 @@ export default function Trabajadores() {
   const [especialidad, setEspecialidad] = useState(''); // <- Nuevo campo libre
   const [turno, setTurno] = useState('DIA');
 
-  const cargarTrabajadores = () => {
-    setCargando(true);
-    fetch('http://127.0.0.1:8000/api/trabajadores/')
-      .then(res => res.json())
-      .then(data => {
-        setTrabajadores(data);
-        setCargando(false);
-      })
-      .catch(() => {
-        setTrabajadores([
-          { id: 1, rut: '12.345.678-9', nombre_completo: 'Juan Pérez', rol: 'OPERARIO', especialidad: 'Rigger', turno_asignado: 'DIA' },
-          { id: 2, rut: '98.765.432-1', nombre_completo: 'Pedro Morales', rol: 'CAPATAZ', especialidad: 'Obras Civiles', turno_asignado: 'NOCHE' }
-        ]);
-        setCargando(false);
-      });
-  };
+  const { data, cargando, recargar: cargarTrabajadores } = useRecords('trabajadores');
+  const trabajadores = data?.[0] || [];
 
-  useEffect(() => {
-    cargarTrabajadores();
-  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (enviando.current) return;
+    enviando.current = true; setProcesando(true);
     const nuevoOperario = {
       rut,
       nombre_completo: nombre,
@@ -45,7 +32,7 @@ export default function Trabajadores() {
       turno_asignado: turno
     };
 
-    fetch('http://127.0.0.1:8000/api/trabajadores/', {
+    fetch('/trabajadores/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(nuevoOperario)
@@ -60,12 +47,8 @@ export default function Trabajadores() {
         Swal.fire('❌ Error', 'No se pudo crear el registro. Verifica que el RUT no esté duplicado.', 'error');
       }
     })
-    .catch(() => {
-      Swal.fire('⚠️ Modo Local', 'Operario agregado localmente.', 'warning');
-      setTrabajadores([...trabajadores, { id: Date.now(), ...nuevoOperario }]);
-      setMostrarModal(false);
-      setRut(''); setNombre(''); setRol('OPERARIO'); setEspecialidad(''); setTurno('DIA');
-    });
+    .catch(error => Swal.fire('Error al guardar', error.message, 'error'))
+    .finally(() => { enviando.current = false; setProcesando(false); });
   };
 
   return (
@@ -75,7 +58,7 @@ export default function Trabajadores() {
           <h2 className="text-3xl font-bold text-slate-800">Control de Personal (Operarios)</h2>
           <p className="text-slate-500 mt-1">Registro oficial de personal autorizado para retirar insumos de bodega.</p>
         </div>
-        <button 
+        <button
           onClick={() => setMostrarModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition shadow-sm font-medium"
         >
@@ -136,7 +119,7 @@ export default function Trabajadores() {
               </h3>
               <button onClick={() => setMostrarModal(false)} className="text-slate-400 hover:text-white transition"><X size={22} /></button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -154,7 +137,7 @@ export default function Trabajadores() {
                   </select>
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Nombre Completo *</label>
                 <input type="text" required placeholder="Ej. Camilo Perez" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded-md p-2.5 text-white focus:outline-none focus:border-emerald-500" />
@@ -177,7 +160,7 @@ export default function Trabajadores() {
 
               <div className="pt-4 flex justify-end gap-3 border-t border-slate-700">
                 <button type="button" onClick={() => setMostrarModal(false)} className="px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-500 transition font-medium">Cancelar</button>
-                <button type="submit" className="px-5 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-500 transition font-semibold shadow-md">Guardar Registro</button>
+                <button type="submit" disabled={procesando} className="px-5 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-500 transition font-semibold shadow-md">Guardar Registro</button>
               </div>
             </form>
           </div>

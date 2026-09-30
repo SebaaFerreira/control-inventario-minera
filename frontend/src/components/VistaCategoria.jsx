@@ -1,4 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useRemoteData } from '../useRecords';
+import { requestJson } from '../api';
+import { verArticulo, editarArticulo, eliminarArticulo } from '../articleActions';
+import { apiFetch as fetch } from '../api';
+import { useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Plus, Send, Eye, Edit, Trash2, X, PackagePlus, Barcode, Wrench, Loader2 } from 'lucide-react';
 import Select from 'react-select';
@@ -6,17 +10,15 @@ import Swal from 'sweetalert2';
 
 export default function VistaCategoria() {
   const { categoriaId } = useParams();
-  const [articulos, setArticulos] = useState([]);
-  const [trabajadores, setTrabajadores] = useState([]);
-  const [cargando, setCargando] = useState(true);
-  
+
   // 🔒 CANDADO ANTIDOBLE CLIC
+  const claveSalida = useRef(null);
   const [procesando, setProcesando] = useState(false);
 
-  const [bodegas, setBodegas] = useState([]);
-  const [categorias, setCategorias] = useState([]);
   const [bodegaSeleccionada, setBodegaSeleccionada] = useState('');
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('');
+  const [categoriaElegida, setCategoriaElegida] = useState(null);
+  const categoriaSeleccionada = categoriaElegida?.slug === categoriaId ? categoriaElegida.id : '';
+  const setCategoriaSeleccionada = id => setCategoriaElegida({ slug: categoriaId, id });
 
   const [mostrarModalSalida, setMostrarModalSalida] = useState(false);
   const [mostrarModalNuevo, setMostrarModalNuevo] = useState(false);
@@ -25,7 +27,7 @@ export default function VistaCategoria() {
   const [articuloId, setArticuloId] = useState('');
   const [cantidad, setCantidad] = useState('');
   const [capataz, setCapataz] = useState('');
-  const [destino, setDestino] = useState('');
+  const destino = '';
   const [turno, setTurno] = useState('Día');
   const [codigoEscaneado, setCodigoEscaneado] = useState('');
 
@@ -33,7 +35,7 @@ export default function VistaCategoria() {
   const [nuevoNombre, setNuevoNombre] = useState('');
   const [nuevaMarca, setNuevaMarca] = useState('');
   const [nuevoStock, setNuevoStock] = useState('');
-  const [nuevoCritico, setNuevoCritico] = useState('');
+  const nuevoCritico = '';
 
   const configuracionVistas = {
     epp: { titulo: 'Elementos de Protección Personal (EPP)', retornable: false },
@@ -47,80 +49,29 @@ export default function VistaCategoria() {
 
   const vistaActual = configuracionVistas[categoriaId] || { titulo: 'Categoría no encontrada', retornable: false };
 
-  const cargarDatosSincronizados = async () => {
-    setCargando(true);
-    try {
-      const [resBod, resCat, resArt, resTrab] = await Promise.all([
-        fetch('http://127.0.0.1:8000/api/bodegas/'),
-        fetch('http://127.0.0.1:8000/api/categorias/'),
-        fetch('http://127.0.0.1:8000/api/articulos/'),
-        fetch('http://127.0.0.1:8000/api/trabajadores/')
-      ]);
-
-      let bodegasDb = resBod.ok ? await resBod.json() : [];
-      let categoriasDb = resCat.ok ? await resCat.json() : [];
-      const articulosDb = resArt.ok ? await resArt.json() : [];
-      const trabajadoresDb = resTrab.ok ? await resTrab.json() : [];
-
-      if (bodegasDb.length === 0) {
-        const resNewBod = await fetch('http://127.0.0.1:8000/api/bodegas/', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nombre: 'Bodega Central Promet', ubicacion: 'Faena Principal' })
-        });
-        if (resNewBod.ok) {
-          const newBod = await resNewBod.json();
-          bodegasDb = [newBod];
-        }
-      }
-      setBodegas(bodegasDb);
-      if (bodegasDb.length > 0) setBodegaSeleccionada(bodegasDb[0].id);
-
-      let matchCategoria = categoriasDb.find(c => 
-        c.nombre.toLowerCase().includes(categoriaId.toLowerCase()) || 
-        categoriaId.toLowerCase().includes(c.nombre.toLowerCase()) ||
-        vistaActual.titulo.toLowerCase().includes(c.nombre.toLowerCase())
-      );
-
-      if (!matchCategoria) {
-        const resNewCat = await fetch('http://127.0.0.1:8000/api/categorias/', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nombre: vistaActual.titulo, descripcion: `Categoría autogenerada para ${categoriaId}` })
-        });
-        if (resNewCat.ok) {
-          matchCategoria = await resNewCat.json();
-          categoriasDb = [...categoriasDb, matchCategoria];
-        }
-      }
-
-      setCategorias(categoriasDb);
-      
-      if (matchCategoria) {
-        setCategoriaSeleccionada(matchCategoria.id);
-        const articulosFiltrados = articulosDb.filter(a => a.categoria === matchCategoria.id);
-        setArticulos(articulosFiltrados);
-      }
-
-      setTrabajadores(trabajadoresDb);
-    } catch (error) {
-      console.error("Error en sincronización automática", error);
-    } finally {
-      setCargando(false);
-    }
-  };
-
-  useEffect(() => {
-    cargarDatosSincronizados();
+  const loader = useCallback(async () => {
+    const configuracion = await requestJson('/inicializar/', { method: 'POST' });
+    const [bodegas, categorias, articulos, trabajadores] = await Promise.all(['bodegas', 'categorias', 'articulos', 'trabajadores'].map(recurso => requestJson(`/${recurso}/`)));
+    return { bodegas, categorias, articulos: articulos.filter(a => a.categoria === configuracion.categorias_por_slug[categoriaId]), trabajadores, categoria: configuracion.categorias_por_slug[categoriaId] };
   }, [categoriaId]);
+  const { data, cargando, recargar: cargarDatosSincronizados } = useRemoteData(loader);
+  const articulos = data?.articulos || [];
+  const trabajadores = data?.trabajadores || [];
+  const bodegas = data?.bodegas || [];
+  const categorias = data?.categorias || [];
+  const bodegaId = bodegaSeleccionada || bodegas[0]?.id || '';
+  const categoriaOficial = categoriaSeleccionada || data?.categoria || '';
 
-  const opcionesTrabajadores = trabajadores.map(t => ({
-    value: t.id, label: `${t.rut} - ${t.nombre_completo} [${t.rol}]`, turno: t.turno_asignado 
+
+  const opcionesTrabajadores = trabajadores.filter(t => t.habilitado_retiro).map(t => ({
+    value: t.id, label: `${t.rut} - ${t.nombre_completo} [${t.rol}]`, turno: t.turno_asignado
   }));
 
   const handleEscanearCodigo = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const articuloEncontrado = articulos.find(a => a.codigo_interno.toUpperCase() === codigoEscaneado.trim().toUpperCase());
-      
+
       if (articuloEncontrado) {
         if (articuloEncontrado.estado === 'MANTENIMIENTO' || articuloEncontrado.estado === 'BAJA') {
           Swal.fire({ icon: 'error', title: '⛔ Herramienta Bloqueada', text: `Esta herramienta está en estado "${articuloEncontrado.estado}".`, confirmButtonColor: '#ef4444' });
@@ -139,36 +90,37 @@ export default function VistaCategoria() {
 
   const handleSubmitNuevoArticulo = (e) => {
     e.preventDefault();
-    if (!bodegaSeleccionada || !categoriaSeleccionada) {
+    if (procesando) return;
+    if (!bodegaId || !categoriaOficial) {
       return Swal.fire('❌ Faltan Datos', 'Espere a que el sistema auto-configure la base de datos...', 'error');
     }
-    
-    setProcesando(true); // 🔒 Bloquear botón
-    const tipoControlCalculado = vistaActual.retornable ? 'HERRAMIENTA' : 'CONSUMIBLE';
 
-    const payloadArticulo = { 
-      codigo_interno: nuevoCodigo, 
-      nombre: nuevoNombre, 
-      marca: nuevaMarca, 
-      stock_actual: parseInt(nuevoStock), 
-      stock_critico: parseInt(nuevoCritico) || 10, 
-      estado: 'OPERATIVO', 
-      categoria: parseInt(categoriaSeleccionada),
-      bodega: parseInt(bodegaSeleccionada),
+    setProcesando(true); // 🔒 Bloquear botón
+    const tipoControlCalculado = vistaActual.retornable ? 'RETORNABLE' : 'CONSUMIBLE';
+
+    const payloadArticulo = {
+      codigo_interno: nuevoCodigo,
+      nombre: nuevoNombre,
+      marca: nuevaMarca,
+      stock_actual: Number(nuevoStock),
+      stock_critico: nuevoCritico === '' ? 10 : Number(nuevoCritico),
+      estado: 'OPERATIVO',
+      categoria: Number(categoriaOficial),
+      bodega: Number(bodegaId),
       tipo_control: tipoControlCalculado
     };
-    
-    fetch('http://127.0.0.1:8000/api/articulos/', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify(payloadArticulo) 
+
+    fetch('/articulos/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadArticulo)
     })
-    .then(async res => { 
+    .then(async res => {
       setProcesando(false); // 🔓 Desbloquear botón
-      if(res.ok) { 
-        Swal.fire('✅ Éxito', 'Artículo registrado en bodega.', 'success'); 
-        setMostrarModalNuevo(false); 
-        cargarDatosSincronizados(); 
+      if(res.ok) {
+        Swal.fire('✅ Éxito', 'Artículo registrado en bodega.', 'success');
+        setMostrarModalNuevo(false);
+        cargarDatosSincronizados();
         setNuevoCodigo(''); setNuevoNombre(''); setNuevaMarca(''); setNuevoStock('');
       } else {
         const dataError = await res.json();
@@ -176,65 +128,69 @@ export default function VistaCategoria() {
         Swal.fire('❌ No se pudo guardar', mensajesDeError, 'error');
       }
     })
-    .catch(() => {
+    .catch((error) => {
       setProcesando(false);
-      Swal.fire('❌ Error', 'No se pudo conectar con el servidor.', 'error');
+      Swal.fire('❌ Error', error.message, 'error');
     });
   };
 
   const handleSubmitSalida = (e) => {
     e.preventDefault();
+    if (procesando) return;
     if (!articuloId) return Swal.fire('⚠️ Cuidado', 'Debes escanear o seleccionar un artículo primero.', 'warning');
-    
+
     setProcesando(true); // 🔒 Bloquear botón
-    
-    const nuevaSalida = { 
-      tipo_movimiento: 'SALIDA', 
-      trabajador: trabajadorId, 
-      articulo: articuloId, 
-      cantidad: cantidad, 
-      capataz_autoriza: capataz, 
-      destino_uso: destino, 
-      turno: turno, 
-      estado_prestamo: vistaActual.retornable ? 'PENDIENTE' : 'N/A' 
+
+    const nuevaSalida = {
+      clave_operacion: claveSalida.current ||= crypto.randomUUID(),
+      tipo_movimiento: 'SALIDA',
+      trabajador: trabajadorId,
+      articulo: articuloId,
+      cantidad: cantidad,
+      capataz_autoriza: capataz,
+      destino_uso: destino,
+      turno: turno,
+      estado_prestamo: vistaActual.retornable ? 'PENDIENTE' : 'N/A'
     };
-    
-    fetch('http://127.0.0.1:8000/api/movimientos/', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify(nuevaSalida) 
+
+    fetch('/movimientos/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nuevaSalida)
     })
-    .then(async res => { 
+    .then(async res => {
       setProcesando(false); // 🔓 Desbloquear botón
-      if(res.ok) { 
-        Swal.fire('✅ Éxito', 'Salida registrada. El stock ha sido descontado.', 'success'); 
-        setMostrarModalSalida(false); 
-        cargarDatosSincronizados(); 
+      if(res.ok) {
+        Swal.fire('✅ Éxito', 'Salida registrada. El stock ha sido descontado.', 'success');
+        setMostrarModalSalida(false);
+        claveSalida.current = null;
+        setArticuloId(''); setCantidad(''); setTrabajadorId(''); setCapataz('');
+        cargarDatosSincronizados();
       } else {
         const dataError = await res.json();
         Swal.fire('❌ Rechazado', JSON.stringify(dataError), 'error');
       }
     })
-    .catch(() => {
+    .catch((error) => {
       setProcesando(false);
-      Swal.fire('❌ Error', 'Error de conexión.', 'error');
+      Swal.fire('❌ Error', error.message, 'error');
     });
   };
 
   const handleCambiarEstado = (item) => {
     Swal.fire({
-      title: `Estado Técnico`, html: `Modificando disponibilidad de: <b>${item.nombre}</b>`, input: 'select',
+      title: `Estado Técnico`, text: `Modificando disponibilidad de: ${item.nombre}`, input: 'select',
       inputOptions: { 'OPERATIVO': '🟢 Operativo (Disponible)', 'MANTENIMIENTO': '🟠 En Mantenimiento (Taller)', 'BAJA': '🔴 Dado de Baja' },
       inputValue: item.estado || 'OPERATIVO', showCancelButton: true, confirmButtonText: 'Actualizar Estado', confirmButtonColor: '#2563eb'
     }).then((result) => {
       if (result.isConfirmed) {
-        fetch(`http://127.0.0.1:8000/api/articulos/${item.id}/`, { 
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estado: result.value }) 
+        fetch(`/articulos/${item.id}/`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estado: result.value })
         })
-        .then(() => { 
-          Swal.fire('✅ Actualizado', `El equipo ahora figura como ${result.value}.`, 'success'); 
-          cargarDatosSincronizados(); 
-        });
+        .then(() => {
+          Swal.fire('✅ Actualizado', `El equipo ahora figura como ${result.value}.`, 'success');
+          cargarDatosSincronizados();
+        }).catch(error => Swal.fire('Error', error.message, 'error'));
       }
     });
   };
@@ -282,10 +238,10 @@ export default function VistaCategoria() {
                   </td>
                   <td className="p-4 text-center">
                     <div className="flex justify-center items-center gap-3 text-slate-400">
-                      <Eye size={18} className="cursor-pointer hover:text-blue-600" />
-                      <Edit size={18} className="cursor-pointer hover:text-amber-500" />
-                      <Wrench size={18} className="cursor-pointer hover:text-indigo-600" title="Cambiar Estado Técnico" onClick={() => handleCambiarEstado(item)} />
-                      <Trash2 size={18} className="cursor-pointer hover:text-red-600" />
+                      <Eye role="button" tabIndex={0} aria-label="Ver detalles" onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.dispatchEvent(new MouseEvent('click', { bubbles: true })); } }} onClick={() => verArticulo(item)} size={18} className="cursor-pointer hover:text-blue-600" />
+                      <Edit role="button" tabIndex={0} aria-label="Editar artículo" onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.dispatchEvent(new MouseEvent('click', { bubbles: true })); } }} onClick={() => editarArticulo(item, cargarDatosSincronizados)} size={18} className="cursor-pointer hover:text-amber-500" />
+                      <Wrench role="button" tabIndex={0} aria-label="Cambiar Estado Técnico" onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.dispatchEvent(new MouseEvent('click', { bubbles: true })); } }} size={18} className="cursor-pointer hover:text-indigo-600" title="Cambiar Estado Técnico" onClick={() => handleCambiarEstado(item)} />
+                      <Trash2 role="button" tabIndex={0} aria-label="Eliminar artículo" onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.dispatchEvent(new MouseEvent('click', { bubbles: true })); } }} onClick={() => eliminarArticulo(item, cargarDatosSincronizados)} size={18} className="cursor-pointer hover:text-red-600" />
                     </div>
                   </td>
                 </tr>
@@ -307,12 +263,12 @@ export default function VistaCategoria() {
             </div>
             <form onSubmit={handleSubmitNuevoArticulo} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                
+
                 <div>
                   <label className="block text-sm mb-1 text-slate-300">Código Interno / Barra *</label>
                   <input type="text" required value={nuevoCodigo} onChange={e => setNuevoCodigo(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none" />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm mb-1 text-slate-300">Nombre del Artículo *</label>
                   <input type="text" required value={nuevoNombre} onChange={e => setNuevoNombre(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none" />
@@ -320,7 +276,7 @@ export default function VistaCategoria() {
 
                 <div>
                   <label className="block text-sm mb-1 text-slate-300">Bodega Destino *</label>
-                  <select required value={bodegaSeleccionada} onChange={e => setBodegaSeleccionada(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none">
+                  <select required value={bodegaId} onChange={e => setBodegaSeleccionada(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none">
                     <option value="">Seleccione Bodega...</option>
                     {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
                   </select>
@@ -328,7 +284,7 @@ export default function VistaCategoria() {
 
                 <div>
                   <label className="block text-sm mb-1 text-slate-300">Categoría Oficial *</label>
-                  <select required value={categoriaSeleccionada} onChange={e => setCategoriaSeleccionada(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none">
+                  <select required value={categoriaOficial} onChange={e => setCategoriaSeleccionada(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none">
                     <option value="">Seleccione Categoría...</option>
                     {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                   </select>
@@ -338,14 +294,14 @@ export default function VistaCategoria() {
                   <label className="block text-sm mb-1 text-slate-300">Marca</label>
                   <input type="text" value={nuevaMarca} onChange={e => setNuevaMarca(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none" />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm mb-1 text-slate-300">Stock Inicial (Unidades) *</label>
-                  <input type="number" required min="0" value={nuevoStock} onChange={e => setNuevoStock(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none" />
+                  <input type="number" required min="0" step="0.01" value={nuevoStock} onChange={e => setNuevoStock(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none" />
                 </div>
 
               </div>
-              
+
               <div className="pt-4 flex justify-end gap-3 border-t border-slate-700">
                 <button type="button" onClick={() => setMostrarModalNuevo(false)} className="px-4 py-2 bg-slate-600 rounded text-white hover:bg-slate-500 transition">Cancelar</button>
                 <button type="submit" disabled={procesando} className={`px-5 py-2 rounded text-white font-bold transition shadow-md flex items-center gap-2 ${procesando ? 'bg-emerald-800 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500'}`}>
@@ -369,7 +325,7 @@ export default function VistaCategoria() {
               <button onClick={() => setMostrarModalSalida(false)} className="text-slate-400 hover:text-white"><X size={22} /></button>
             </div>
             <form onSubmit={handleSubmitSalida} className="p-6 space-y-5">
-              
+
               <div className="bg-slate-800 p-4 rounded-lg border border-slate-600 flex items-center gap-4">
                 <div className="p-3 bg-[#0f172a] rounded-lg border border-blue-500/30">
                   <Barcode className="text-blue-400 animate-pulse" size={28} />
@@ -382,17 +338,17 @@ export default function VistaCategoria() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Trabajador que retira *</label>
-                <Select required options={opcionesTrabajadores} onChange={(o) => setTrabajadorId(o ? o.value : '')} placeholder="Buscar operario por nombre o RUT..." className="text-slate-900" />
+                <Select required options={opcionesTrabajadores} value={opcionesTrabajadores.find(o => o.value === trabajadorId) || null} onChange={(o) => { setTrabajadorId(o ? o.value : ''); setTurno(o?.turno || 'DIA'); }} placeholder="Buscar operario por nombre o RUT..." className="text-slate-900" />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Artículo (Solo Herramientas Operativas) *</label>
                 <select required value={articuloId} onChange={(e) => setArticuloId(e.target.value)} className={`w-full bg-[#0f172a] border rounded-md p-2.5 text-white focus:outline-none ${articuloId ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-600'}`}>
                   <option value="" className="text-slate-400">Seleccione el insumo manualmente...</option>
                   {articulos
                     .filter(a => a.estado === 'OPERATIVO' || !a.estado)
-                    .map(a => ( 
-                      <option key={a.id} value={a.id}>{a.codigo_interno} - {a.nombre} (Stock: {a.stock_actual})</option> 
+                    .map(a => (
+                      <option key={a.id} value={a.id}>{a.codigo_interno} - {a.nombre} (Stock: {a.stock_actual})</option>
                   ))}
                 </select>
               </div>
@@ -400,7 +356,7 @@ export default function VistaCategoria() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Cantidad a Entregar *</label>
-                  <input type="number" required min="1" value={cantidad} onChange={(e) => setCantidad(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded-md p-2.5 text-white focus:outline-none focus:border-blue-500" />
+                  <input type="number" required min="0.01" step="0.01" value={cantidad} onChange={(e) => setCantidad(e.target.value)} className="w-full bg-[#0f172a] border border-slate-600 rounded-md p-2.5 text-white focus:outline-none focus:border-blue-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">Jefatura / Capataz Autoriza *</label>

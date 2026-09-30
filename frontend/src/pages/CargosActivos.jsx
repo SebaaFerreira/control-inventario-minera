@@ -1,39 +1,24 @@
-import { useState, useEffect } from 'react';
+import { descargarCSV } from '../csv';
+import { recibirDevolucion } from '../returns';
+import { useRecords } from '../useRecords';
+import { useState } from 'react';
 import { UserCheck, AlertCircle, Clock, CheckCircle2, RefreshCcw, FileSpreadsheet, HardHat, RefreshCw } from 'lucide-react';
 import Select from 'react-select';
 import Swal from 'sweetalert2';
 
 export default function CargosActivos() {
-  const [cargando, setCargando] = useState(true);
-  const [articulos, setArticulos] = useState([]);
-  const [trabajadores, setTrabajadores] = useState([]);
-  const [movimientos, setMovimientos] = useState([]);
-  
+
   // Estado para el buscador
   const [trabajadorSeleccionado, setTrabajadorSeleccionado] = useState(null);
 
-  const cargarDatosGlobales = () => {
-    setCargando(true);
-    Promise.all([
-      fetch('http://127.0.0.1:8000/api/movimientos/').then(res => res.json()),
-      fetch('http://127.0.0.1:8000/api/articulos/').then(res => res.json()),
-      fetch('http://127.0.0.1:8000/api/trabajadores/').then(res => res.json())
-    ])
-    .then(([movs, arts, trabs]) => {
-      setMovimientos(Array.isArray(movs) ? movs.sort((a, b) => b.id - a.id) : []);
-      setArticulos(Array.isArray(arts) ? arts : []);
-      setTrabajadores(Array.isArray(trabs) ? trabs : []);
-      setCargando(false);
-    })
-    .catch(() => setCargando(false));
-  };
+  const { data, cargando, recargar: cargarDatosGlobales } = useRecords('movimientos', 'articulos', 'trabajadores');
+  const movimientos = data?.[0] || [];
+  const articulos = data?.[1] || [];
+  const trabajadores = data?.[2] || [];
 
-  useEffect(() => {
-    cargarDatosGlobales();
-  }, []);
 
   const opcionesTrabajadores = trabajadores.map(t => ({
-    value: t.id, 
+    value: t.id,
     label: `${t.rut} - ${t.nombre_completo} [${t.especialidad || t.rol}]`,
     datos: t
   }));
@@ -41,14 +26,14 @@ export default function CargosActivos() {
   // =========================================================
   // 🧠 LÓGICA DE FILTRADO (A PRUEBA DE BALAS)
   // =========================================================
-  
+
   // 1. Convertimos el ID a string para evitar choques entre Textos y Números
   const idBuscado = trabajadorSeleccionado ? String(trabajadorSeleccionado.value) : null;
 
-  const movimientosDelTrabajador = idBuscado 
+  const movimientosDelTrabajador = idBuscado
     ? movimientos.filter(m => {
         // A veces Django manda el trabajador como objeto, a veces como número. Esto lo ataja todo:
-        const idMovimiento = typeof m.trabajador === 'object' ? String(m.trabajador.id) : String(m.trabajador);
+        const idMovimiento = m.trabajador && typeof m.trabajador === 'object' ? String(m.trabajador.id) : String(m.trabajador);
         return idMovimiento === idBuscado;
       })
     : [];
@@ -58,7 +43,7 @@ export default function CargosActivos() {
     const tipo = String(m.tipo_movimiento).toUpperCase().trim();
     const estado = String(m.estado_prestamo).toUpperCase().trim();
     // Exigimos que sea una Salida y que NO esté devuelto
-    return tipo === 'SALIDA' && estado !== 'DEVUELTO';
+    return tipo === 'SALIDA' && estado === 'PENDIENTE';
   });
 
   // 3. Lo que ya devolvió históricamente
@@ -70,7 +55,7 @@ export default function CargosActivos() {
   // Utilidades
   const getNombreArticulo = (id) => articulos.find(a => String(a.id) === String(id))?.nombre || `Insumo ID: ${id}`;
   const getCodigoArticulo = (id) => articulos.find(a => String(a.id) === String(id))?.codigo_interno || '-';
-  
+
   const calcularDiasEnTerreno = (fechaString) => {
     const fechaEntrega = new Date(fechaString);
     const hoy = new Date();
@@ -82,38 +67,16 @@ export default function CargosActivos() {
   // =========================================================
   // 🔄 RECIBIR DEVOLUCIÓN DIRECTO DESDE LA FICHA
   // =========================================================
-  const handleRecibirDevolucion = (movimiento) => {
-    Swal.fire({
-      title: '¿Confirmar Devolución?',
-      html: `¿Estás seguro de que <b>${trabajadorSeleccionado.datos.nombre_completo}</b> está devolviendo <b>${movimiento.cantidad}x ${getNombreArticulo(movimiento.articulo)}</b>?`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, recibir insumo',
-      confirmButtonColor: '#d97706',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        fetch(`http://127.0.0.1:8000/api/movimientos/${movimiento.id}/`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ estado_prestamo: 'DEVUELTO' })
-        }).then(res => {
-          if (res.ok) {
-            Swal.fire('✅ Recibido', 'El stock volvió a la bodega.', 'success');
-            cargarDatosGlobales(); 
-          }
-        });
-      }
-    });
-  };
+  const handleRecibirDevolucion = (m) => recibirDevolucion(m, getNombreArticulo(m.articulo), trabajadorSeleccionado.datos.nombre_completo, cargarDatosGlobales);
 
   // =========================================================
   // 📥 EXPORTAR COMPROBANTE DE CARGOS (PAZ Y SALVO)
   // =========================================================
   const handleExportarComprobante = () => {
     if (cargosPendientes.length === 0) return Swal.fire('Sin Cargos', 'Este trabajador no tiene deudas pendientes con bodega.', 'info');
-    
+
     const encabezados = ['RUT Operario', 'Nombre', 'Código Artículo', 'Herramienta / EPP', 'Cantidad Adeudada', 'Fecha de Entrega', 'Días en Terreno'];
-    
+
     const filas = cargosPendientes.map(m => [
       trabajadorSeleccionado.datos.rut,
       trabajadorSeleccionado.datos.nombre_completo,
@@ -124,18 +87,7 @@ export default function CargosActivos() {
       `${calcularDiasEnTerreno(m.fecha_hora)} días`
     ]);
 
-    const contenidoCSV = [
-      encabezados.join(';'),
-      ...filas.map(fila => fila.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
-    ].join('\n');
-
-    const blob = new Blob(['\uFEFF' + contenidoCSV], { type: 'text/csv;charset=utf-8;' });
-    const enlace = document.createElement('a');
-    enlace.href = URL.createObjectURL(blob);
-    enlace.download = `Cargos_Pendientes_${trabajadorSeleccionado.datos.rut}.csv`;
-    document.body.appendChild(enlace);
-    enlace.click();
-    document.body.removeChild(enlace);
+    descargarCSV(encabezados, filas, `Cargos_Pendientes_${trabajadorSeleccionado.datos.rut}.csv`);
   };
 
   return (
@@ -148,7 +100,7 @@ export default function CargosActivos() {
           </h2>
           <p className="text-slate-500 mt-1">Consulta exactamente qué insumos tiene asignados cada trabajador.</p>
         </div>
-        
+
         {/* Botón para refrescar la ficha sin recargar toda la página */}
         <button onClick={cargarDatosGlobales} className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 font-bold rounded-lg hover:bg-blue-200 transition">
           <RefreshCw size={18} className={cargando ? "animate-spin" : ""} />
@@ -163,8 +115,8 @@ export default function CargosActivos() {
         <label className="block text-sm font-bold text-slate-700 mb-3 uppercase tracking-wide flex items-center gap-2">
           <HardHat size={18} className="text-amber-500"/> Buscar Operario en Faena
         </label>
-        <Select 
-          options={opcionesTrabajadores} 
+        <Select
+          options={opcionesTrabajadores}
           onChange={setTrabajadorSeleccionado}
           isLoading={cargando}
           placeholder="Escribe el nombre o RUT del trabajador para ver su ficha..."
@@ -174,7 +126,7 @@ export default function CargosActivos() {
 
       {trabajadorSeleccionado && (
         <div className="space-y-8 animate-fade-in-up">
-          
+
           {/* ========================================================= */}
           {/* 🚨 SECCIÓN: PENDIENTES DE DEVOLUCIÓN (LO QUE DEBE) */}
           {/* ========================================================= */}
@@ -187,7 +139,7 @@ export default function CargosActivos() {
                 <FileSpreadsheet size={16}/> Reporte de Deuda
               </button>
             </div>
-            
+
             <div className="p-0">
               {cargosPendientes.length === 0 ? (
                 <div className="p-8 text-center text-slate-500 font-medium flex flex-col items-center gap-2">
@@ -245,7 +197,7 @@ export default function CargosActivos() {
                 <CheckCircle2 size={22} className="text-emerald-500"/> Historial de Insumos Devueltos
               </h3>
             </div>
-            
+
             <div className="p-0 max-h-[400px] overflow-y-auto">
               {cargosDevueltos.length === 0 ? (
                 <div className="p-6 text-center text-slate-400 text-sm">Aún no registra devoluciones en el sistema.</div>

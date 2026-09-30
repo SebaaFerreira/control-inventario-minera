@@ -1,10 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useRecords } from '../useRecords';
+import { apiFetch as fetch } from '../api';
+import { useState, useRef } from 'react';
 // 1. Importamos el nuevo componente de búsqueda
 import Select from 'react-select';
 
 function Salidas() {
-  const [articulos, setArticulos] = useState([]);
-  const [trabajadores, setTrabajadores] = useState([]);
+  const { data, recargar: cargarArticulos } = useRecords('articulos', 'trabajadores');
+  const articulos = data?.[0] || [];
+  const trabajadores = data?.[1] || [];
+  const enviando = useRef(false);
+  const claveSalida = useRef(null);
+  const [procesando, setProcesando] = useState(false);
 
   // Estados para los campos del formulario
   const [trabajadorId, setTrabajadorId] = useState('');
@@ -14,33 +20,24 @@ function Salidas() {
   const [destino, setDestino] = useState('');
   const [turno, setTurno] = useState('Día');
 
-  const cargarArticulos = () => {
-    fetch('http://127.0.0.1:8000/api/articulos/')
-      .then(res => res.json())
-      .then(data => setArticulos(data));
-  };
 
-  useEffect(() => {
-    cargarArticulos();
-    
-    fetch('http://127.0.0.1:8000/api/trabajadores/')
-      .then(res => res.json())
-      .then(data => setTrabajadores(data));
-  }, []);
 
   // 2. Formateamos la lista de trabajadores para que react-select la entienda
   // Mostrará: "RUT - Nombre Completo (Rol)" y guardará el ID interno.
-  const opcionesTrabajadores = trabajadores.map(t => ({
+  const opcionesTrabajadores = trabajadores.filter(t => t.habilitado_retiro).map(t => ({
     value: t.id,
     label: `${t.rut} - ${t.nombre_completo} [${t.rol}]`,
     // Guardamos el turno asignado en el backend para usarlo después si es necesario
-    turno: t.turno_asignado 
+    turno: t.turno_asignado
   }));
 
   const handleSubmit = (e) => {
-    e.preventDefault(); 
+    e.preventDefault();
+    if (enviando.current) return;
+    enviando.current = true; setProcesando(true);
 
     const nuevaSalida = {
+      clave_operacion: claveSalida.current ||= crypto.randomUUID(),
       tipo_movimiento: 'SALIDA',
       trabajador: trabajadorId,
       articulo: articuloId,
@@ -48,10 +45,9 @@ function Salidas() {
       capataz_autoriza: capataz,
       destino_uso: destino,
       turno: turno,
-      devuelto: false
     };
 
-    fetch('http://127.0.0.1:8000/api/movimientos/', {
+    fetch('/movimientos/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(nuevaSalida)
@@ -59,6 +55,7 @@ function Salidas() {
     .then(response => {
       if(response.ok) {
         alert('✅ Salida registrada con éxito. El stock ha sido descontado.');
+        claveSalida.current = null;
         setArticuloId('');
         setCantidad('');
         setDestino('');
@@ -67,7 +64,8 @@ function Salidas() {
         alert('❌ Error al registrar la salida. Revisa los datos.');
       }
     })
-    .catch(error => console.error("Error en la conexión:", error));
+    .catch(error => alert(error.message))
+    .finally(() => { enviando.current = false; setProcesando(false); });
   };
 
   return (
@@ -76,7 +74,7 @@ function Salidas() {
 
       <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 max-w-4xl">
         <form onSubmit={handleSubmit} className="space-y-6">
-          
+
           {/* Fila 1: Trabajador con Buscador y Capataz */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -86,13 +84,14 @@ function Salidas() {
                 required
                 placeholder="Digita RUT o nombre..."
                 options={opcionesTrabajadores}
+                value={opcionesTrabajadores.find(o => o.value === trabajadorId) || null}
                 onChange={(option) => {
                   setTrabajadorId(option ? option.value : '');
                   // Tu observación: Auto-completar el turno del trabajador si viene de la base de datos
                   if (option && option.turno) {
                     // Mapeamos los códigos del backend a los del formulario visual
                     const turnoMap = { 'DIA': 'Día', 'NOCHE': 'Noche', 'A': 'Turno A', 'B': 'Turno B', 'E': 'Turno E' };
-                    setTurno(turnoMap[option.turno] || 'Día');
+                    setTurno(turnoMap[option.turno] || option.turno);
                   }
                 }}
                 className="text-gray-800"
@@ -100,7 +99,7 @@ function Salidas() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Capataz que autoriza *</label>
-              <input 
+              <input
                 type="text" required placeholder="Ej. Pedro Morales"
                 className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 value={capataz} onChange={(e) => setCapataz(e.target.value)}
@@ -112,21 +111,21 @@ function Salidas() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Artículo *</label>
-              <select 
+              <select
                 required
                 className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 value={articuloId}
                 onChange={(e) => setArticuloId(e.target.value)}
               >
                 <option value="">Seleccione un artículo...</option>
-                {articulos.map(a => (
+                {articulos.filter(a => a.estado === 'OPERATIVO' && Number(a.stock_actual) > 0).map(a => (
                   <option key={a.id} value={a.id}>{a.codigo_interno} | {a.nombre} (Stock: {a.stock_actual})</option>
                 ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Cantidad *</label>
-              <input 
+              <input
                 type="number" required min="0.01" step="0.01" placeholder="Ej. 2"
                 className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 value={cantidad} onChange={(e) => setCantidad(e.target.value)}
@@ -138,7 +137,7 @@ function Salidas() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Destino / Uso</label>
-              <input 
+              <input
                 type="text" placeholder="Ej. Instalación de faena sector B"
                 className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 value={destino} onChange={(e) => setDestino(e.target.value)}
@@ -146,7 +145,7 @@ function Salidas() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Turno *</label>
-              <select 
+              <select
                 className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 value={turno} onChange={(e) => setTurno(e.target.value)}
               >
@@ -155,13 +154,14 @@ function Salidas() {
                 <option value="Turno A">Turno A</option>
                 <option value="Turno B">Turno B</option>
                 <option value="Turno E">Turno E</option>
+                {!['Día', 'Noche', 'Turno A', 'Turno B', 'Turno E'].includes(turno) && <option value={turno}>{turno}</option>}
               </select>
             </div>
           </div>
 
           <div className="pt-4 border-t border-gray-100">
-            <button 
-              type="submit" 
+            <button
+              type="submit" disabled={procesando}
               className="w-full md:w-auto px-8 py-3 bg-red-600 text-white font-bold rounded-md hover:bg-red-700 shadow-md transition"
             >
               Registrar Salida de Bodega

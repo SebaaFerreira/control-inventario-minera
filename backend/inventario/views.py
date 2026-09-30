@@ -1,13 +1,38 @@
-import os
-import tempfile
-import openpyxl
 from io import StringIO
 from django.core.management import call_command
 from django.http import HttpResponse, JsonResponse
 from rest_framework.decorators import api_view
 from rest_framework import viewsets
+from rest_framework.exceptions import ValidationError
+from .imports import restaurar_respaldo, importar_trabajadores, normalizar
+from django.db import transaction
+from rest_framework.response import Response
 from .models import Bodega, Categoria, Articulo, Movimiento, Trabajador
 from .serializers import BodegaSerializer, CategoriaSerializer, ArticuloSerializer, MovimientoSerializer, TrabajadorSerializer
+
+
+@api_view(['POST'])
+def inicializar_inventario(request):
+    # La configuración es idempotente incluso con React StrictMode o dos clientes.
+    definiciones = {
+        'epp': 'Elementos de Protección Personal (EPP)',
+        'fijaciones': 'Fijaciones y Sujeciones',
+        'tuberias': 'Tuberías y Fitting',
+        'sustancias': 'Sustancias Peligrosas (HazMat)',
+        'manuales': 'Herramientas Manuales',
+        'electricas': 'Herramientas Eléctricas',
+        'leime': 'Registro LEIME',
+    }
+    with transaction.atomic():
+        if not Bodega.objects.exists():
+            Bodega.objects.create(nombre='Bodega Central Promet', ubicacion='Faena Principal')
+        mapeo = {}
+        for slug, nombre in definiciones.items():
+            categoria = next((c for c in Categoria.objects.order_by('id') if normalizar(c.nombre) in (normalizar(nombre), slug.upper()) or slug.upper() in normalizar(c.nombre)), None)
+            if categoria is None:
+                categoria = Categoria.objects.create(nombre=nombre)
+            mapeo[slug] = categoria.id
+    return JsonResponse({'categorias_por_slug': mapeo})
 
 class BodegaViewSet(viewsets.ModelViewSet):
     queryset = Bodega.objects.all()
@@ -20,51 +45,34 @@ class CategoriaViewSet(viewsets.ModelViewSet):
 class ArticuloViewSet(viewsets.ModelViewSet):
     queryset = Articulo.objects.all()
     serializer_class = ArticuloSerializer
-    
+
     def get_queryset(self):
         queryset = Articulo.objects.all()
         categoria = self.request.query_params.get('categoria', None)
         if categoria is not None:
-            queryset = queryset.filter(categoria__iexact=categoria)
+            if not categoria.isdigit():
+                raise ValidationError({'categoria': 'La categoría debe ser un ID numérico.'})
+            queryset = queryset.filter(categoria_id=categoria)
         return queryset
 
 class MovimientoViewSet(viewsets.ModelViewSet):
-    queryset = Movimiento.objects.all().order_by('-id')
+    queryset = Movimiento.objects.select_related('articulo', 'trabajador').order_by('-id')
     serializer_class = MovimientoSerializer
+    http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
 
-    def perform_create(self, serializer):
-        # 1. Miramos el stock ANTES de guardar (por si tu models.py lo descuenta solo)
-        articulo = serializer.validated_data['articulo']
-        stock_antes = articulo.stock_actual
-
-        # 2. Guardamos el movimiento en la DB
-        movimiento = serializer.save()
-
-        # 3. Refrescamos el artículo para ver si models.py ya hizo el descuento
-        articulo.refresh_from_db()
-        
-        if movimiento.tipo_movimiento == 'SALIDA':
-            # Si el stock no ha cambiado, significa que models.py NO hizo el trabajo. Lo restamos manualmente.
-            if articulo.stock_actual == stock_antes:
-                articulo.stock_actual -= movimiento.cantidad
-                if articulo.stock_actual < 0:
-                    articulo.stock_actual = 0
-                articulo.save()
-
-    def perform_update(self, serializer):
-        movimiento_viejo = self.get_object()
-        estaba_devuelto = (movimiento_viejo.estado_prestamo == 'DEVUELTO')
-        stock_antes = movimiento_viejo.articulo.stock_actual
-        
-        movimiento_nuevo = serializer.save()
-        movimiento_nuevo.articulo.refresh_from_db()
-        
-        if not estaba_devuelto and movimiento_nuevo.estado_prestamo == 'DEVUELTO':
-            # Verificamos si models.py ya sumó el stock de vuelta
-            if movimiento_nuevo.articulo.stock_actual == stock_antes:
-                articulo = movimiento_nuevo.articulo
-                articulo.stock_actual += movimiento_nuevo.cantidad
-                articulo.save()
+    def create(self, request, *args, **kwargs):
+        with transaction.atomic():
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            clave = serializer.validated_data.get('clave_operacion')
+            anterior = Movimiento.objects.filter(clave_operacion=clave).first() if clave else None
+            if anterior:
+                for campo, valor in serializer.validated_data.items():
+                    if campo not in ('estado_prestamo', 'clave_operacion') and getattr(anterior, campo) != valor:
+                        raise ValidationError('Esta operación ya existe con otros datos. Actualice el formulario.')
+                return Response(self.get_serializer(anterior).data, status=200)
+            serializer.save()
+            return Response(serializer.data, status=201)
 
 class TrabajadorViewSet(viewsets.ModelViewSet):
     queryset = Trabajador.objects.all()
@@ -78,7 +86,8 @@ class TrabajadorViewSet(viewsets.ModelViewSet):
 def exportar_respaldo(request):
     try:
         out = StringIO()
-        call_command('dumpdata', 'inventario', format='json', indent=4, stdout=out)
+        with transaction.atomic():
+            call_command('dumpdata', 'inventario', format='json', indent=4, stdout=out)
         response = HttpResponse(out.getvalue(), content_type='application/json')
         response['Content-Disposition'] = 'attachment; filename="respaldo_bodega.json"'
         return response
@@ -87,103 +96,17 @@ def exportar_respaldo(request):
 
 @api_view(['POST'])
 def importar_respaldo(request):
-    try:
-        if 'archivo' not in request.FILES:
-            return JsonResponse({'error': 'No se adjuntó archivo.'}, status=400)
-        archivo = request.FILES['archivo']
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as tmp:
-            for chunk in archivo.chunks(): tmp.write(chunk)
-            tmp_path = tmp.name
-        call_command('loaddata', tmp_path)
-        os.remove(tmp_path)
-        return JsonResponse({'mensaje': 'Base de datos restaurada.'})
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+    archivo = request.FILES.get('archivo')
+    if not archivo:
+        raise ValidationError({'error': 'No se adjuntó archivo.'})
+    restaurar_respaldo(archivo)
+    return JsonResponse({'mensaje': 'Base de inventario restaurada correctamente.'})
 
-# =========================================================
-# 🟢 MEGA-IMPORTADOR INTELIGENTE (TARJA EXCEL MARICUNGA)
-# =========================================================
+
 @api_view(['POST'])
 def importar_excel_trabajadores(request):
-    try:
-        if 'archivo' not in request.FILES:
-            return JsonResponse({'error': 'No se adjuntó ningún archivo.'}, status=400)
-
-        archivo = request.FILES['archivo']
-        wb = openpyxl.load_workbook(archivo, data_only=True)
-
-        indices = {}
-        creados = 0
-        actualizados = 0
-        hoja_datos = None
-        fila_inicio = 0
-
-        for sheet in wb.worksheets:
-            filas_prueba = list(sheet.iter_rows(values_only=True, max_row=50))
-            for idx_fila, row in enumerate(filas_prueba):
-                row_strs = [str(c).strip().upper() if c is not None else "" for c in row]
-                if any("RUT" in c for c in row_strs) and any("NOMBRE" in c for c in row_strs):
-                    hoja_datos = sheet
-                    fila_inicio = idx_fila + 1
-                    for idx_col, val in enumerate(row_strs):
-                        if "RUT" in val: indices['rut'] = idx_col
-                        elif "NOMBRE" in val: indices['nombre'] = idx_col
-                        elif "CARGO" in val: indices['cargo'] = idx_col
-                        elif "ESTADO" in val and "ASISTENCIA" in val: indices['estado'] = idx_col
-                        elif "TURNO" in val: indices['turno'] = idx_col
-                        elif "CICLO" in val: indices['ciclo'] = idx_col
-                        elif "TELEFONO" in val: indices['telefono'] = idx_col
-                        elif "TEST" in val: indices['test'] = idx_col
-                        elif "HABITACION" in val: indices['habitacion'] = idx_col
-                    break
-            if hoja_datos:
-                break
-
-        if not hoja_datos:
-            nombres_hojas = ", ".join(wb.sheetnames)
-            return JsonResponse({'error': f'No se encontró la tabla con RUT y NOMBRE en: {nombres_hojas}'}, status=400)
-
-        filas_completas = list(hoja_datos.iter_rows(values_only=True))
-        for row in filas_completas[fila_inicio:]:
-            def get_val(key):
-                if key in indices and indices[key] < len(row):
-                    val = row[indices[key]]
-                    v_str = str(val).strip() if val is not None else ""
-                    return "" if v_str.upper() == 'NONE' else v_str
-                return ""
-
-            rut_val = get_val('rut')
-            if not rut_val or rut_val == '':
-                continue
-
-            nombre = get_val('nombre') or 'Sin Nombre'
-            cargo = get_val('cargo')
-            
-            rol_calc = 'OPERARIO'
-            if 'CAPATAZ' in cargo.upper(): rol_calc = 'CAPATAZ'
-            elif 'JEFE' in cargo.upper() or 'SUPERVISOR' in cargo.upper(): rol_calc = 'SUPERVISOR'
-
-            defaults = {
-                'nombre_completo': nombre[:150],
-                'rol': rol_calc,
-                'especialidad': cargo[:100],
-                'estado_asistencia': get_val('estado')[:50],
-                'sistema_turno': get_val('turno')[:50],
-                'turno_asignado': get_val('ciclo')[:20] or 'DIA',
-                'telefono': get_val('telefono')[:50],
-                'test_esfuerzo': get_val('test')[:50],
-                'habitacion': get_val('habitacion')[:100],
-                'activo': True
-            }
-
-            _, created = Trabajador.objects.update_or_create(rut=rut_val[:12], defaults=defaults)
-            if created: creados += 1
-            else: actualizados += 1
-
-        if creados == 0 and actualizados == 0:
-            return JsonResponse({'error': 'Encontramos los títulos, pero no pudimos leer ningún RUT válido debajo.'}, status=400)
-
-        return JsonResponse({'mensaje': f'Trabajadores Nuevos: {creados} | Trabajadores Actualizados: {actualizados}'})
-
-    except Exception as e:
-        return JsonResponse({'error': f"Error técnico al leer el archivo: {str(e)}"}, status=500)
+    archivo = request.FILES.get('archivo')
+    if not archivo:
+        raise ValidationError({'error': 'No se adjuntó archivo.'})
+    creados, actualizados = importar_trabajadores(archivo)
+    return JsonResponse({'mensaje': f'Trabajadores Nuevos: {creados} | Trabajadores Actualizados: {actualizados}'})

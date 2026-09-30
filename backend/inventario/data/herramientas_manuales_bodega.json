@@ -1,0 +1,343 @@
+[
+  {
+    "codigo": "HMB-001",
+    "nombre": "Martillo de carpintero",
+    "stock": 22,
+    "nombre_original": "Martillo Carpintero"
+  },
+  {
+    "codigo": "HMB-002",
+    "nombre": "Martillo de peña",
+    "stock": 4,
+    "nombre_original": "Martillo Peña"
+  },
+  {
+    "codigo": "HMB-003",
+    "nombre": "Martillo de andamiero",
+    "stock": 1,
+    "nombre_original": "Martillo Andamiero"
+  },
+  {
+    "codigo": "HMB-004",
+    "nombre": "Serrucho de costilla",
+    "stock": 6,
+    "nombre_original": "Serrucho Costilla"
+  },
+  {
+    "codigo": "HMB-005",
+    "nombre": "Serrucho de carpintero",
+    "stock": 24,
+    "nombre_original": "Serrucho Carpintero"
+  },
+  {
+    "codigo": "HMB-006",
+    "nombre": "Arco de sierra",
+    "stock": 15,
+    "nombre_original": "Marco Sierra"
+  },
+  {
+    "codigo": "HMB-007",
+    "nombre": "Alicate universal",
+    "stock": 12,
+    "nombre_original": "Alicate Universal"
+  },
+  {
+    "codigo": "HMB-008",
+    "nombre": "Alicate de punta",
+    "stock": 15,
+    "nombre_original": "Alicate Punta"
+  },
+  {
+    "codigo": "HMB-009",
+    "nombre": "Alicate de corte",
+    "stock": 9,
+    "nombre_original": "Alicate Cortante"
+  },
+  {
+    "codigo": "HMB-010",
+    "nombre": "Alicate de enfierrador",
+    "stock": 1,
+    "nombre_original": "Alicate Enfierrador"
+  },
+  {
+    "codigo": "HMB-011",
+    "nombre": "Maceta",
+    "stock": 6,
+    "nombre_original": "Maceta"
+  },
+  {
+    "codigo": "HMB-012",
+    "nombre": "Cortapernos (napoleón)",
+    "stock": 2,
+    "nombre_original": "Napoleón"
+  },
+  {
+    "codigo": "HMB-013",
+    "nombre": "Foco solar LED 100 W",
+    "stock": 2,
+    "nombre_original": "Foco solar led 100w"
+  },
+  {
+    "codigo": "HMB-014",
+    "nombre": "Tijera de hojalatero",
+    "stock": 11,
+    "nombre_original": "Tijera Hojalatera"
+  },
+  {
+    "codigo": "HMB-015",
+    "nombre": "Pistola calafatera",
+    "stock": 14,
+    "nombre_original": "Pistola Calafatera"
+  },
+  {
+    "codigo": "HMB-016",
+    "nombre": "Pistola calafatera para salchicha (paté)",
+    "stock": 4,
+    "nombre_original": "Pistola calafatera (pate)"
+  },
+  {
+    "codigo": "HMB-017",
+    "nombre": "Pistola de fijación HILTI",
+    "stock": 2,
+    "marca": "HILTI",
+    "nombre_original": "Pistola HILTI"
+  },
+  {
+    "codigo": "HMB-018",
+    "nombre": "Flexómetro",
+    "stock": 8,
+    "nombre_original": "Flexometro"
+  },
+  {
+    "codigo": "HMB-019",
+    "nombre": "Alicate de presión de cadena",
+    "stock": 1,
+    "nombre_original": "Caimán Llave cadena"
+  },
+  {
+    "codigo": "HMB-020",
+    "nombre": "Alicate de presión",
+    "stock": 5,
+    "nombre_original": "Caimán"
+  },
+  {
+    "codigo": "HMB-021",
+    "nombre": "Alicate de presión de precisión",
+    "stock": 4,
+    "nombre_original": "Caimán Precisión"
+  },
+  {
+    "codigo": "HMB-022",
+    "nombre": "Barretilla",
+    "stock": 15,
+    "nombre_original": "Barretilla"
+  },
+  {
+    "codigo": "HMB-023",
+    "nombre": "Barreta de uña",
+    "stock": 2,
+    "nombre_original": "Uñeta"
+  },
+  {
+    "codigo": "HMB-024",
+    "nombre": "Alicate pico de loro",
+    "stock": 2,
+    "nombre_original": "Picoloro"
+  },
+  {
+    "codigo": "HMB-025",
+    "nombre": "Lima",
+    "stock": 10,
+    "nombre_original": "Lima"
+  },
+  {
+    "codigo": "HMB-026",
+    "nombre": "Tizador",
+    "stock": 8,
+    "nombre_original": "Tizador"
+  },
+  {
+    "codigo": "HMB-027",
+    "nombre": "Escuadra de carpintero",
+    "stock": 8,
+    "nombre_original": "Escuadra Carpintera"
+  },
+  {
+    "codigo": "HMB-028",
+    "nombre": "Escuadra de talón",
+    "stock": 0,
+    "nombre_original": "Escuadra Talon"
+  },
+  {
+    "codigo": "HMB-029",
+    "nombre": "Cortacables manual (Corta Churro)",
+    "stock": 0,
+    "nombre_original": "Corta Churro"
+  },
+  {
+    "codigo": "HMB-030",
+    "nombre": "Pelacables ajustable",
+    "stock": 0,
+    "nombre_original": "Pelacable Ajustable"
+  },
+  {
+    "codigo": "HMB-031",
+    "nombre": "Crimpadora de férulas (ferrulera)",
+    "stock": 0,
+    "nombre_original": "Ferrulera"
+  },
+  {
+    "codigo": "HMB-032",
+    "nombre": "Pelacables",
+    "stock": 0,
+    "nombre_original": "Pelacable"
+  },
+  {
+    "codigo": "HMB-033",
+    "nombre": "Cortatubos",
+    "stock": 3,
+    "nombre_original": "Corta Tubo"
+  },
+  {
+    "codigo": "HMB-034",
+    "nombre": "Tijera cortatubos PPR pequeña",
+    "stock": 2,
+    "nombre_original": "Tijera PPR Chica"
+  },
+  {
+    "codigo": "HMB-035",
+    "nombre": "Tijera cortatubos PPR grande",
+    "stock": 0,
+    "nombre_original": "Tijera PPR Grande"
+  },
+  {
+    "codigo": "HMB-036",
+    "nombre": "Cinta métrica de 30 m",
+    "stock": 1,
+    "nombre_original": "Cinta medir 30 Mts"
+  },
+  {
+    "codigo": "HMB-037",
+    "nombre": "Cinta métrica de 50 m",
+    "stock": 1,
+    "nombre_original": "Cinta Medir 50 Mts"
+  },
+  {
+    "codigo": "HMB-038",
+    "nombre": "Juego de dados TOPTUL",
+    "stock": 5,
+    "marca": "TOPTUL",
+    "nombre_original": "JGO Dado Toptul"
+  },
+  {
+    "codigo": "HMB-039",
+    "nombre": "Juego de dados FORCE",
+    "stock": 1,
+    "marca": "FORCE",
+    "nombre_original": "JGO Dado force"
+  },
+  {
+    "codigo": "HMB-040",
+    "nombre": "Juego de dados STANLEY",
+    "stock": 4,
+    "marca": "STANLEY",
+    "nombre_original": "JGO Dado Stanley"
+  },
+  {
+    "codigo": "HMB-041",
+    "nombre": "Juego de dados INGCO",
+    "stock": 3,
+    "marca": "INGCO",
+    "nombre_original": "JGO Dado Incco"
+  },
+  {
+    "codigo": "HMB-042",
+    "nombre": "Llave ajustable de 10 pulgadas",
+    "stock": 2,
+    "nombre_original": "Llave Ajustables 10\""
+  },
+  {
+    "codigo": "HMB-043",
+    "nombre": "Llave ajustable de 12 pulgadas",
+    "stock": 1,
+    "nombre_original": "Llave Ajustables 12\""
+  },
+  {
+    "codigo": "HMB-044",
+    "nombre": "Llave ajustable de 14 pulgadas",
+    "stock": 0,
+    "nombre_original": "Llave Ajustables 14\""
+  },
+  {
+    "codigo": "HMB-045",
+    "nombre": "Llave Stillson de 10 pulgadas",
+    "stock": 0,
+    "nombre_original": "Llave Estilson 10\""
+  },
+  {
+    "codigo": "HMB-046",
+    "nombre": "Llave Stillson de 12 pulgadas",
+    "stock": 2,
+    "nombre_original": "Llave Estilson 12\""
+  },
+  {
+    "codigo": "HMB-047",
+    "nombre": "Llave Stillson de 14 pulgadas",
+    "stock": 4,
+    "nombre_original": "Llave Estilson 14\""
+  },
+  {
+    "codigo": "HMB-048",
+    "nombre": "Nivel de mano de 30 cm",
+    "stock": 3,
+    "nombre_original": "Nivel Mano 30cm"
+  },
+  {
+    "codigo": "HMB-049",
+    "nombre": "Nivel de mano de 60 cm",
+    "stock": 16,
+    "nombre_original": "Nivel Mano 60\"cm"
+  },
+  {
+    "codigo": "HMB-050",
+    "nombre": "Nivel de mano de 1 m",
+    "stock": 4,
+    "nombre_original": "Nivel Mano 1 mts"
+  },
+  {
+    "codigo": "HMB-051",
+    "nombre": "Nivel de mano de 2 m",
+    "stock": 3,
+    "nombre_original": "Nivel Mano 2 mts"
+  },
+  {
+    "codigo": "HMB-052",
+    "nombre": "Juego de llaves punta-corona de 8 a 32 mm",
+    "stock": 1,
+    "nombre_original": "JGO Punta Corona 8 A 32\""
+  },
+  {
+    "codigo": "HMB-053",
+    "nombre": "Juego de terrajas",
+    "stock": 4,
+    "nombre_original": "JGO torrajas"
+  },
+  {
+    "codigo": "HMB-054",
+    "nombre": "Juego de herramientas para crimpar terminales",
+    "stock": 2,
+    "nombre_original": "JGO Aprieta Terminales"
+  },
+  {
+    "codigo": "HMB-055",
+    "nombre": "Dado magnético de 5/16 pulgadas",
+    "stock": 55,
+    "nombre_original": "Vaso magnético 5/16\""
+  },
+  {
+    "codigo": "HMB-056",
+    "nombre": "Extensión PH2",
+    "stock": 45,
+    "nombre_original": "Extensión PH 2"
+  }
+]
