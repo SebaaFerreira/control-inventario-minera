@@ -1,3 +1,5 @@
+import { descargarCSV } from '../csv';
+import { apiFetch as fetch } from '../api';
 import { Download, Upload, Database, Users, Package, AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useRef } from 'react';
@@ -9,22 +11,11 @@ export default function Configuracion() {
   const descargarExcel = (datos, encabezados, mapeoFila, nombreArchivo) => {
     if (!datos || datos.length === 0) return Swal.fire('Sin datos', 'No hay registros para exportar.', 'info');
     const filas = datos.map(mapeoFila);
-    const contenidoCSV = [
-      encabezados.join(';'),
-      ...filas.map(fila => fila.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
-    ].join('\n');
-
-    const blob = new Blob(['\uFEFF' + contenidoCSV], { type: 'text/csv;charset=utf-8;' });
-    const enlace = document.createElement('a');
-    enlace.href = URL.createObjectURL(blob);
-    enlace.download = `${nombreArchivo}_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(enlace);
-    enlace.click();
-    document.body.removeChild(enlace);
+    descargarCSV(encabezados, filas, `${nombreArchivo}_${new Date().toISOString().split('T')[0]}.csv`);
   };
 
   const handleExportarTrabajadores = () => {
-    fetch('http://127.0.0.1:8000/api/trabajadores/')
+    fetch('/trabajadores/')
       .then(res => res.json())
       .then(datos => {
         descargarExcel(
@@ -33,11 +24,11 @@ export default function Configuracion() {
           (t) => [t.rut, t.nombre_completo, t.rol, t.especialidad || 'N/A', t.turno_asignado, t.sistema_turno || 'N/A', t.habitacion || 'N/A', t.telefono || 'N/A'],
           'Reporte_Trabajadores'
         );
-      });
+      }).catch(error => Swal.fire('Error', error.message, 'error'));
   };
 
   const handleExportarInventario = () => {
-    fetch('http://127.0.0.1:8000/api/articulos/')
+    fetch('/articulos/')
       .then(res => res.json())
       .then(datos => {
         descargarExcel(
@@ -46,7 +37,7 @@ export default function Configuracion() {
           (a) => [a.codigo_interno, a.nombre, a.marca || 'N/A', a.stock_actual, a.estado, a.tipo_control],
           'Reporte_Inventario'
         );
-      });
+      }).catch(error => Swal.fire('Error', error.message, 'error'));
   };
 
   // ============================================================
@@ -67,7 +58,7 @@ export default function Configuracion() {
     });
 
     // 👇 LA RUTA NUEVA ESTÁ AQUÍ 👇
-    fetch('http://127.0.0.1:8000/api/importar-tarja/', {
+    fetch('/importar-tarja/', {
       method: 'POST',
       body: formData
     })
@@ -79,13 +70,13 @@ export default function Configuracion() {
       return data;
     })
     .then(data => {
-      Swal.fire({ 
-        icon: 'success', 
-        title: '¡Tarja Sincronizada!', 
-        html: `<div class="text-lg font-bold text-emerald-700 mt-2">${data.mensaje}</div>`,
+      Swal.fire({
+        icon: 'success',
+        title: '¡Tarja Sincronizada!',
+        text: data.mensaje,
         confirmButtonColor: '#059669'
       });
-      e.target.value = ''; 
+      e.target.value = '';
     })
     .catch((err) => {
       Swal.fire({ icon: 'error', title: 'Error de Lectura', text: err.message });
@@ -93,22 +84,31 @@ export default function Configuracion() {
     });
   };
 
-  const handleBackupSistema = () => window.open('http://127.0.0.1:8000/api/respaldos/exportar/', '_blank');
-  
-  const handleRestaurarSistema = (e) => {
+  const handleBackupSistema = async () => {
+    try {
+      const response = await fetch('/respaldos/exportar/');
+      const url = URL.createObjectURL(await response.blob());
+      const enlace = document.createElement('a');
+      enlace.href = url; enlace.download = 'respaldo_bodega.json';
+      enlace.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { Swal.fire('Error al respaldar', error.message, 'error'); }
+  };
+
+  const handleRestaurarSistema = async (e) => {
     const file = e.target.files[0];
+    e.target.value = '';
     if (!file) return;
-    Swal.fire({
-      title: '⚠️ ¿Sobrescribir Base de Datos?', text: 'Esto restaurará el sistema completo.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        const formData = new FormData();
-        formData.append('archivo', file);
-        fetch('http://127.0.0.1:8000/api/respaldos/importar/', { method: 'POST', body: formData })
-        .then(() => Swal.fire('Éxito', 'Sistema restaurado.', 'success'));
-      }
-      e.target.value = '';
-    });
+    await Swal.fire({
+      title: '¿Sobrescribir Base de Datos?', text: 'Se reemplazará todo el inventario por el respaldo. Descargue un respaldo actual antes de continuar.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626',
+      showLoaderOnConfirm: true, allowOutsideClick: () => !Swal.isLoading(),
+      preConfirm: async () => {
+        try {
+          const formData = new FormData(); formData.append('archivo', file);
+          const response = await fetch('/respaldos/importar/', { method: 'POST', body: formData });
+          return response.json();
+        } catch (error) { Swal.showValidationMessage(error.message); return false; }
+      },
+    }).then(result => { if (result.isConfirmed) Swal.fire('Éxito', result.value.mensaje, 'success'); });
   };
 
   return (
@@ -126,8 +126,8 @@ export default function Configuracion() {
             <p className="text-sm text-slate-500">Sube la planilla original de recursos humanos. El sistema detectará automáticamente los RUT, Cargos, Habitaciones y Turnos.</p>
           </div>
         </div>
-        
-        <input type="file" accept=".xlsx, .xls, .xlsm" ref={excelInputRef} onChange={handleImportarTarja} className="hidden" />
+
+        <input type="file" accept=".xlsx, .xlsm" ref={excelInputRef} onChange={handleImportarTarja} className="hidden" />
         <button onClick={() => excelInputRef.current.click()} className="mt-4 w-full py-3 bg-[#107c41] text-white rounded-lg font-bold hover:bg-[#0c5e31] transition shadow-sm flex justify-center items-center gap-2">
           <Upload size={20} /> Sincronizar Planilla de Trabajadores
         </button>

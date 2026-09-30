@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, Search, HardHat, Nut, Droplet, 
-  FlaskConical, Wrench, Zap, ClipboardList, Users, Settings, UserCheck, History
+import {
+  LayoutDashboard, Search, HardHat, Nut, Droplet,
+  FlaskConical, Wrench, Zap, Users, Settings, UserCheck, History, ClipboardList
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -18,6 +18,7 @@ export default function Sidebar() {
     { name: 'Sustancias Peligrosas', path: '/categoria/sustancias', icon: <FlaskConical size={20} /> },
     { name: 'Herramientas Manuales', path: '/categoria/manuales', icon: <Wrench size={20} /> },
     { name: 'Herramientas Eléctricas', path: '/categoria/electricas', icon: <Zap size={20} /> },
+    { name: 'Registro LEIME', path: '/categoria/leime', icon: <ClipboardList size={20} /> },
     { name: 'Personal / Operarios', path: '/trabajadores', icon: <Users size={20} /> },
     { name: 'Reportes y Config', path: '/configuracion', icon: <Settings size={20} /> },
   ];
@@ -28,7 +29,7 @@ export default function Sidebar() {
         <h1 className="text-xl font-bold text-amber-400">Bodega Promet</h1>
         <p className="text-xs text-slate-400">Control de Inventario</p>
       </div>
-      
+
       <nav className="flex-1 py-4 overflow-y-auto">
         <ul className="space-y-1 px-2">
           {menuItems.map((item) => {
@@ -38,8 +39,8 @@ export default function Sidebar() {
                 <Link
                   to={item.path}
                   className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                    isActive 
-                      ? 'bg-amber-500 text-slate-900 font-semibold' 
+                    isActive
+                      ? 'bg-amber-500 text-slate-900 font-semibold'
                       : 'hover:bg-slate-700 text-slate-300'
                   }`}
                 >
@@ -51,7 +52,7 @@ export default function Sidebar() {
           })}
         </ul>
       </nav>
-      
+
       <div className="p-4 border-t border-slate-700 text-xs text-slate-400 text-center">
         Usuario: Admin Pañol
       </div>

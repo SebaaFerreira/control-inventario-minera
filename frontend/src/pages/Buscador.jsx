@@ -1,39 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useRecords } from '../useRecords';
+import { verArticulo, editarArticulo, eliminarArticulo } from '../articleActions';
+import { useState } from 'react';
 import { Search, Eye, Edit, Trash2 } from 'lucide-react';
-import Swal from 'sweetalert2';
 
 export default function Buscador() {
-  const [articulos, setArticulos] = useState([]);
   const [busqueda, setBusqueda] = useState('');
-  const [cargando, setCargando] = useState(true);
 
-  const consultarTodoElInventario = () => {
-    setCargando(true);
-    // Solicitamos TODOS los artículos sin filtro de categoría
-    fetch('http://127.0.0.1:8000/api/articulos/')
-      .then(res => res.json())
-      .then(data => {
-        setArticulos(data);
-        setCargando(false);
-      })
-      .catch(() => {
-        // Mock de respaldo por si el backend está apagado
-        setArticulos([
-          { id: 1, codigo_interno: 'ART-001', nombre: 'Guantes de Cabritilla', marca: 'Steelpro', stock_actual: 45 },
-          { id: 2, codigo_interno: 'ART-002', nombre: 'Antiparras Transparentes', marca: '3M', stock_actual: 12 },
-          { id: 3, codigo_interno: 'ART-003', nombre: 'Martillo Carpintero', marca: 'Stanley', stock_actual: 10 },
-          { id: 4, codigo_interno: 'ART-004', nombre: 'Esmeril Angular 4.5"', marca: 'Makita', stock_actual: 4 },
-          { id: 5, codigo_interno: 'ART-005', nombre: 'Diluyente Sintético', marca: 'Sipa', stock_actual: 8 },
-          { id: 6, codigo_interno: 'ART-006', nombre: 'Clavos 3 pulgadas', marca: 'Inchalam', stock_actual: 1500 },
-          { id: 7, codigo_interno: 'ART-007', nombre: 'Codo PVC 20mm', marca: 'Tigre', stock_actual: 45 }
-        ]);
-        setCargando(false);
-      });
-  };
+  const { data, cargando, recargar: consultarTodoElInventario } = useRecords('articulos');
+  const articulos = data?.[0] || [];
 
-  useEffect(() => {
-    consultarTodoElInventario();
-  }, []);
 
   // --- LÓGICA DEL BUSCADOR INTELIGENTE EN TIEMPO REAL ---
   const articulosFiltrados = articulos.filter((item) => {
@@ -41,53 +16,13 @@ export default function Buscador() {
     const coincideNombre = item.nombre.toLowerCase().includes(termino);
     const coincideCodigo = item.codigo_interno.toLowerCase().includes(termino);
     const coincideMarca = item.marca ? item.marca.toLowerCase().includes(termino) : false;
-    
+
     return coincideNombre || coincideCodigo || coincideMarca;
   });
 
-  // --- CRUD (Para que la Data Table sea 100% interactiva) ---
-  const handleVerDetalles = (item) => {
-    Swal.fire({ title: `🔍 Detalle de Artículo`, html: `<div class="text-left space-y-2 text-sm p-2"><p><strong>Código:</strong> ${item.codigo_interno}</p><p><strong>Nombre:</strong> ${item.nombre}</p><p><strong>Marca:</strong> ${item.marca || 'N/A'}</p><p><strong>Stock Actual:</strong> ${item.stock_actual} unidades</p></div>`, confirmButtonColor: '#2563eb' });
-  };
-
-  const handleEditarArticulo = (item) => {
-    Swal.fire({
-      title: `📦 Ajuste de Stock`,
-      text: `Ingresa el nuevo stock para "${item.nombre}"`,
-      input: 'number',
-      inputValue: item.stock_actual,
-      showCancelButton: true,
-      confirmButtonText: 'Actualizar Stock',
-      confirmButtonColor: '#d97706',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (result.isConfirmed && result.value) {
-        const nuevoStockFisico = parseInt(result.value);
-        fetch(`http://127.0.0.1:8000/api/articulos/${item.id}/`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stock_actual: nuevoStockFisico })
-        })
-        .then(res => {
-          if (res.ok) {
-            Swal.fire('✅ Stock Actualizado', 'Modificado correctamente.', 'success');
-            consultarTodoElInventario();
-          } else {
-            Swal.fire('❌ Error', 'Error al comunicar con el servidor.', 'error');
-          }
-        })
-        .catch(() => {
-          Swal.fire('⚠️ Modo Local', 'Ajuste local de prueba.', 'warning');
-          setArticulos(articulos.map(a => a.id === item.id ? { ...a, stock_actual: nuevoStockFisico } : a));
-        });
-      }
-    });
-  };
-
-  const handleEliminarArticulo = (item) => {
-    Swal.fire({ title: '¿Eliminar?', text: `Dar de baja "${item.nombre}".`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonText: 'Cancelar' })
-    .then((result) => { if (result.isConfirmed) Swal.fire('Eliminado', 'Removido con éxito', 'success'); });
-  };
+  const handleVerDetalles = verArticulo;
+  const handleEditarArticulo = (item) => editarArticulo(item, consultarTodoElInventario);
+  const handleEliminarArticulo = (item) => eliminarArticulo(item, consultarTodoElInventario);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -141,16 +76,16 @@ export default function Buscador() {
                   <td className="p-4 text-slate-500">{item.marca || 'N/A'}</td>
                   <td className="p-4 text-center">
                     <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                      item.stock_actual > 10 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      Number(item.stock_actual) > Number(item.stock_critico) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                     }`}>
                       {item.stock_actual}
                     </span>
                   </td>
                   <td className="p-4 text-center">
                     <div className="flex justify-center gap-3 text-slate-400">
-                      <Eye size={18} className="cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleVerDetalles(item)} />
-                      <Edit size={18} className="cursor-pointer hover:text-amber-500 transition-colors" onClick={() => handleEditarArticulo(item)} />
-                      <Trash2 size={18} className="cursor-pointer hover:text-red-600 transition-colors" onClick={() => handleEliminarArticulo(item)} />
+                      <Eye role="button" tabIndex={0} aria-label="Ver detalles" onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.dispatchEvent(new MouseEvent('click', { bubbles: true })); } }} size={18} className="cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleVerDetalles(item)} />
+                      <Edit role="button" tabIndex={0} aria-label="Editar artículo" onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.dispatchEvent(new MouseEvent('click', { bubbles: true })); } }} size={18} className="cursor-pointer hover:text-amber-500 transition-colors" onClick={() => handleEditarArticulo(item)} />
+                      <Trash2 role="button" tabIndex={0} aria-label="Eliminar artículo" onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.dispatchEvent(new MouseEvent('click', { bubbles: true })); } }} size={18} className="cursor-pointer hover:text-red-600 transition-colors" onClick={() => handleEliminarArticulo(item)} />
                     </div>
                   </td>
                 </tr>

@@ -1,68 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useRecords } from '../useRecords';
 import { Package, AlertTriangle, Clock, ArrowRightLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    totalArticulos: 0,
-    stockCritico: 0,
-    pendientesDevolucion: 0,
-    movimientosHoy: 0
-  });
-  const [movimientosRecientes, setMovimientosRecientes] = useState([]);
-  const [cargando, setCargando] = useState(true);
-
-  useEffect(() => {
-    // Usamos Promise.all para hacer las dos consultas a Django al mismo tiempo
-    Promise.all([
-      fetch('http://127.0.0.1:8000/api/articulos/').then(res => res.ok ? res.json() : []),
-      fetch('http://127.0.0.1:8000/api/movimientos/').then(res => res.ok ? res.json() : [])
-    ])
-    .then(([articulos, movimientos]) => {
-      calcularEstadisticas(articulos, movimientos);
-      setCargando(false);
-    })
-    .catch(() => {
-      // Mock de respaldo por si Django está apagado
-      const mockArticulos = [
-        { stock_actual: 5, stock_critico: 10 },
-        { stock_actual: 50, stock_critico: 10 },
-        { stock_actual: 2, stock_critico: 5 },
-      ];
-      // Simulamos la fecha de hoy
-      const hoyISO = new Date().toISOString(); 
-      const mockMovimientos = [
-        { id: 1, articulo_nombre: 'Taladro Percutor 18V', tipo_movimiento: 'SALIDA', devuelto: false, fecha_hora: hoyISO, trabajador_nombre: 'Miguel' },
-        { id: 2, articulo_nombre: 'Esmeril Angular 4.5"', tipo_movimiento: 'SALIDA', devuelto: true, fecha_hora: hoyISO, trabajador_nombre: 'Romina' },
-        { id: 3, articulo_nombre: 'Guantes de Cabritilla', tipo_movimiento: 'SALIDA', devuelto: false, fecha_hora: new Date(Date.now() - 86400000).toISOString(), trabajador_nombre: 'Pedro' }
-      ];
-      calcularEstadisticas(mockArticulos, mockMovimientos);
-      setCargando(false);
-    });
-  }, []);
-
-  const calcularEstadisticas = (articulos, movimientos) => {
-    // 1. Total de Artículos en catálogo
-    const totalArticulos = articulos.length;
-    
-    // 2. Stock Crítico: Cantidad actual <= Cantidad crítica (o 10 por defecto)
-    const stockCritico = articulos.filter(a => a.stock_actual <= (a.stock_critico || 10)).length;
-    
-    // 3. Herramientas prestadas que no han sido devueltas
-    const pendientesDevolucion = movimientos.filter(m => m.tipo_movimiento === 'SALIDA' && m.devuelto === false).length;
-    
-    // 4. Movimientos realizados en el día actual
-    const hoyStr = new Date().toLocaleDateString();
-    const movimientosHoy = movimientos.filter(m => {
-      const fechaMov = new Date(m.fecha_hora).toLocaleDateString();
-      return fechaMov === hoyStr;
-    }).length;
-
-    setStats({ totalArticulos, stockCritico, pendientesDevolucion, movimientosHoy });
-    
-    // Extraemos los últimos 5 movimientos para la tabla resumen
-    setMovimientosRecientes(movimientos.slice(0, 5));
+  const { data, cargando } = useRecords('articulos', 'movimientos');
+  const articulos = data?.[0] || [];
+  const movimientos = data?.[1] || [];
+  const hoy = new Date().toLocaleDateString('es-CL', { timeZone: 'America/Santiago' });
+  const stats = {
+    totalArticulos: articulos.length,
+    stockCritico: articulos.filter(a => Number(a.stock_actual) <= Number(a.stock_critico)).length,
+    pendientesDevolucion: movimientos.filter(m => m.tipo_movimiento === 'SALIDA' && m.estado_prestamo === 'PENDIENTE').length,
+    movimientosHoy: movimientos.filter(m => new Date(m.fecha_hora).toLocaleDateString('es-CL', { timeZone: 'America/Santiago' }) === hoy).length,
   };
+  const movimientosRecientes = movimientos.slice(0, 5);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -79,7 +30,7 @@ export default function Dashboard() {
         <>
           {/* ======================= TARJETAS DE KPIs ======================= */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            
+
             {/* KPI 1: Artículos */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center gap-4">
               <div className="p-3 bg-blue-100 text-blue-600 rounded-lg">
@@ -123,7 +74,7 @@ export default function Dashboard() {
                 <h3 className="text-2xl font-bold text-slate-800">{stats.movimientosHoy}</h3>
               </div>
             </div>
-            
+
           </div>
 
           {/* ======================= TABLA DE ÚLTIMOS MOVIMIENTOS ======================= */}
@@ -134,7 +85,7 @@ export default function Dashboard() {
                 Ver historial completo &rarr;
               </Link>
             </div>
-            
+
             {movimientosRecientes.length === 0 ? (
               <p className="p-6 text-center text-slate-500">No hay movimientos recientes.</p>
             ) : (

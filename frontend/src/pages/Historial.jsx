@@ -1,34 +1,16 @@
-import { useState, useEffect } from 'react';
-import { History, Download, ArrowUpRight, ArrowDownRight, RefreshCcw, CheckCircle } from 'lucide-react';
+import { descargarCSV } from '../csv';
+import { recibirDevolucion } from '../returns';
+import { useRecords } from '../useRecords';
+import { History, Download, ArrowUpRight, ArrowDownRight, RefreshCcw } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function Historial() {
-  const [movimientos, setMovimientos] = useState([]);
-  const [articulos, setArticulos] = useState([]);
-  const [trabajadores, setTrabajadores] = useState([]);
-  const [cargando, setCargando] = useState(true);
 
-  const cargarDatos = () => {
-    setCargando(true);
-    // Hacemos 3 llamadas simultáneas para cruzar los IDs con los nombres reales
-    Promise.all([
-      fetch('http://127.0.0.1:8000/api/movimientos/').then(res => res.json()),
-      fetch('http://127.0.0.1:8000/api/articulos/').then(res => res.json()),
-      fetch('http://127.0.0.1:8000/api/trabajadores/').then(res => res.json())
-    ])
-    .then(([movs, arts, trabs]) => {
-      // Ordenamos para que los movimientos más nuevos salgan arriba
-      setMovimientos(Array.isArray(movs) ? movs.sort((a, b) => b.id - a.id) : []);
-      setArticulos(Array.isArray(arts) ? arts : []);
-      setTrabajadores(Array.isArray(trabs) ? trabs : []);
-      setCargando(false);
-    })
-    .catch(() => setCargando(false));
-  };
+  const { data, cargando, recargar: cargarDatos } = useRecords('movimientos', 'articulos', 'trabajadores');
+  const movimientos = data?.[0] || [];
+  const articulos = data?.[1] || [];
+  const trabajadores = data?.[2] || [];
 
-  useEffect(() => {
-    cargarDatos();
-  }, []);
 
   // Funciones para buscar los nombres según el ID
   const getNombreArticulo = (id) => articulos.find(a => a.id === id)?.nombre || `Insumo ID: ${id}`;
@@ -38,9 +20,9 @@ export default function Historial() {
   // Función de Exportación a Excel
   const handleExportarExcel = () => {
     if (movimientos.length === 0) return Swal.fire('Vacío', 'No hay registros para exportar', 'info');
-    
+
     const encabezados = ['ID Mov', 'Fecha y Hora', 'Tipo Movimiento', 'Código Artículo', 'Artículo', 'Cantidad', 'Trabajador', 'Autoriza (Capataz)', 'Turno', 'Estado Préstamo'];
-    
+
     const filas = movimientos.map(m => [
       m.id,
       new Date(m.fecha_hora).toLocaleString(),
@@ -54,51 +36,14 @@ export default function Historial() {
       m.estado_prestamo
     ]);
 
-    const contenidoCSV = [
-      encabezados.join(';'),
-      ...filas.map(fila => fila.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
-    ].join('\n');
-
-    const blob = new Blob(['\uFEFF' + contenidoCSV], { type: 'text/csv;charset=utf-8;' });
-    const enlace = document.createElement('a');
-    enlace.href = URL.createObjectURL(blob);
-    enlace.download = `Bitacora_Movimientos_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(enlace);
-    enlace.click();
-    document.body.removeChild(enlace);
+    descargarCSV(encabezados, filas, `Bitacora_Movimientos_${new Date().toISOString().split('T')[0]}.csv`);
     Swal.fire('✅ Exportado', 'Bitácora descargada en Excel.', 'success');
   };
 
   // =========================================================================
   // 🔄 FUNCIÓN PARA RECIBIR DEVOLUCIONES DE CUALQUIER COSA
   // =========================================================================
-  const handleRecibirDevolucion = (movimiento) => {
-    Swal.fire({
-      title: '¿Confirmar Devolución?',
-      html: `Estás a punto de recibir <b>${movimiento.cantidad} unidad(es)</b> de <b>${getNombreArticulo(movimiento.articulo)}</b> que tenía <b>${getNombreTrabajador(movimiento.trabajador)}</b>.<br><br>Esto sumará el stock de vuelta a la bodega.`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, recibir insumo',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#d97706', // Color Ámbar
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Le mandamos el aviso por PATCH a Django de que esto se devolvió
-        fetch(`http://127.0.0.1:8000/api/movimientos/${movimiento.id}/`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ estado_prestamo: 'DEVUELTO' })
-        }).then(async res => {
-          if (res.ok) {
-            Swal.fire('✅ Insumo Recibido', 'El stock ha vuelto a la bodega exitosamente.', 'success');
-            cargarDatos(); // Refrescamos la tabla para ver el cambio
-          } else {
-            Swal.fire('❌ Error', 'No se pudo registrar la devolución.', 'error');
-          }
-        }).catch(() => Swal.fire('❌ Error', 'Falla de conexión con el servidor.', 'error'));
-      }
-    });
-  };
+  const handleRecibirDevolucion = (m) => recibirDevolucion(m, getNombreArticulo(m.articulo), getNombreTrabajador(m.trabajador), cargarDatos);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -110,7 +55,7 @@ export default function Historial() {
           </h2>
           <p className="text-slate-500 mt-1">Historial completo de salidas, entradas y devoluciones de la faena.</p>
         </div>
-        
+
         <button onClick={handleExportarExcel} className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition shadow-sm font-semibold">
           <Download size={20} />
           Exportar a Excel
@@ -142,7 +87,7 @@ export default function Historial() {
                     <td className="p-4 text-slate-500">
                       {new Date(m.fecha_hora).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                     </td>
-                    
+
                     <td className="p-4 font-bold">
                       {m.tipo_movimiento === 'SALIDA' ? <span className="text-blue-600 flex items-center gap-1"><ArrowUpRight size={16}/> Salida</span> :
                        m.tipo_movimiento === 'ENTRADA' ? <span className="text-emerald-600 flex items-center gap-1"><ArrowDownRight size={16}/> Entrada</span> :
@@ -155,7 +100,7 @@ export default function Historial() {
                     <td className="p-4 truncate max-w-[200px]" title={getNombreTrabajador(m.trabajador)}>
                       {getNombreTrabajador(m.trabajador)}
                     </td>
-                    
+
                     <td className="p-4 text-center">
                       <span className={`px-2 py-1 rounded text-xs font-bold ${
                         m.estado_prestamo === 'PENDIENTE' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
@@ -169,7 +114,7 @@ export default function Historial() {
                     <td className="p-4 text-center">
                       {/* 👇 AHORA EL BOTÓN APARECE PARA CUALQUIER SALIDA QUE NO HAYA SIDO DEVUELTA AÚN 👇 */}
                       {(m.tipo_movimiento === 'SALIDA' && m.estado_prestamo !== 'DEVUELTO') ? (
-                        <button 
+                        <button
                           onClick={() => handleRecibirDevolucion(m)}
                           className="flex items-center justify-center gap-1 bg-amber-500 text-white px-3 py-1.5 rounded hover:bg-amber-600 transition font-medium text-xs mx-auto shadow-sm"
                         >
