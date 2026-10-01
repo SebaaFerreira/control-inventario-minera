@@ -311,6 +311,40 @@ class CargaHerramientasTests(APITestCase):
         self.assertEqual(Movimiento.objects.count(), 0)
 
 
+class CargaElectricasTests(APITestCase):
+    def setUp(self):
+        InventarioAPITests.setUp(self)
+        self.electricas = Categoria.objects.create(nombre='Herramientas Eléctricas')
+
+    def cargar(self):
+        from django.core.management import call_command
+        from io import StringIO
+        call_command('cargar_herramientas_electricas', stdout=StringIO())
+
+    def test_carga_preserva_inventario_y_reintento_preserva_stock(self):
+        self.cargar()
+        self.assertEqual(self.electricas.articulos.count(), 31)
+        self.assertEqual(sum(a.stock_actual for a in self.electricas.articulos.all()), 94)
+        self.assertEqual(Articulo.objects.get(pk=self.articulo.pk).stock_actual, 10)
+        articulo = Articulo.objects.get(codigo_interno='HEB-001')
+        Movimiento.objects.create(articulo=articulo, tipo_movimiento='BAJA', cantidad=1, capataz_autoriza='QA', turno='DIA')
+        self.cargar()
+        articulo.refresh_from_db()
+        self.assertEqual(articulo.stock_actual, 12)
+        self.assertEqual(Articulo.objects.count(), 32)
+        self.assertEqual(Movimiento.objects.count(), 32)
+        self.assertEqual(Trabajador.objects.count(), 1)
+
+    def test_conflicto_de_codigo_revierte_carga_parcial(self):
+        from django.core.management.base import CommandError
+        self.articulo.codigo_interno = 'HEB-002'
+        self.articulo.save()
+        with self.assertRaises(CommandError):
+            self.cargar()
+        self.assertEqual(Articulo.objects.count(), 1)
+        self.assertEqual(Movimiento.objects.count(), 0)
+
+
 class ConcurrenciaTests(TransactionTestCase):
     def setUp(self):
         InventarioAPITests.setUp(self)

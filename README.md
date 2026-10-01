@@ -2,6 +2,20 @@
 
 MVP para pruebas locales de bodega. Backend Django 6.0.6 / Django REST Framework / SQLite; frontend React / Vite / Tailwind CSS. Esta actualización mantiene el diseño, los colores y la distribución de las pantallas.
 
+## Carga de herramientas eléctricas — 01/10/2026
+
+- Se agregaron **31 artículos y 94 unidades** en **Herramientas Eléctricas**, todos retornables, con códigos `HEB-001` a `HEB-031`. Se conservaron los 56 artículos manuales, sus movimientos y el personal. Tras esta carga, el inventario contiene 87 artículos y 469 unidades.
+- Nombres y marcas normalizados: MAKITA, BLACK+DECKER, BOSCH, EINHELL, UBERMANN, rotomartillo, multiherramienta oscilante, martillo demoledor (cango), llave de impacto, máquinas de electrofusión y polifusión. El archivo `backend/inventario/data/herramientas_electricas_bodega.json` conserva las denominaciones recibidas para revisar las equivalencias.
+- Se respetaron las medidas indicadas, incluidas las de 7 1/2 pulgadas; no se cambiaron por tamaños habituales de catálogo. La línea partida del esmeril inalámbrico de 4 1/2 pulgadas corresponde a un solo artículo, con stock 2.
+- Cada artículo nuevo tiene una entrada inicial auditada. La carga es transaccional: un conflicto revierte todos los cambios. Repetirla conserva el stock actual y no duplica artículos ni movimientos; este comando no admite reemplazar el inventario.
+- Respaldo local previo: `work/db-antes-electricas-2026-10-01.sqlite3`, excluido de Git. Se mantienen el diseño y los estilos existentes.
+
+Para agregar este listado en otra instalación con bodega y categoría inicializadas:
+
+```powershell
+.\.venv\Scripts\python.exe backend/manage.py cargar_herramientas_electricas
+```
+
 ## Actualización funcional — 29/09/2026
 
 ### Carga de herramientas de bodega — 29/09/2026
@@ -92,7 +106,7 @@ Acceder a [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/). Usar la 
 powershell -ExecutionPolicy Bypass -File scripts/verificar.ps1
 ```
 
-El script ejecuta `check`, detección de migraciones pendientes, 35 pruebas del backend (incluidas tres de concurrencia y cuatro de carga de herramientas), lint, 2 pruebas CSV, build y auditoría npm. Las pruebas usan una base separada `backend/test_inventory.sqlite3`, que el runner crea y elimina. No usar ese nombre para datos de trabajo.
+El script ejecuta `check`, detección de migraciones pendientes, 37 pruebas del backend (incluidas tres de concurrencia y seis de carga de herramientas), lint, 2 pruebas CSV, build y auditoría npm. Las pruebas usan una base separada `backend/test_inventory.sqlite3`, que el runner crea y elimina. No usar ese nombre para datos de trabajo.
 
 Verificación efectuada: controles anteriores aprobados; recorrido en navegador de creación de personal/artículo, escaneo, salida decimal, resumen, devolución en historial y ficha, salida independiente, ajuste a cero, protección de eliminación, descarga CSV/JSON, importación de tarja y restauración. Los registros QA se crearon en `work/browser-qa.sqlite3`, separados de la base real.
 
