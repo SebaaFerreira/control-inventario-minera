@@ -1,0 +1,219 @@
+[
+  {
+    "codigo": "HEB-001",
+    "nombre": "Taladro atornillador inalámbrico MAKITA",
+    "stock": 13,
+    "marca": "MAKITA",
+    "nombre_original": "Taladros Atornillador Inalambrico makita"
+  },
+  {
+    "codigo": "HEB-002",
+    "nombre": "Taladro de impacto inalámbrico MAKITA",
+    "stock": 13,
+    "marca": "MAKITA",
+    "nombre_original": "Taladro De Impacto Inalambrico makita"
+  },
+  {
+    "codigo": "HEB-003",
+    "nombre": "Taladro inalámbrico BLACK+DECKER",
+    "stock": 9,
+    "marca": "BLACK+DECKER",
+    "nombre_original": "Taladro Inalambrico Blackdecker"
+  },
+  {
+    "codigo": "HEB-004",
+    "nombre": "Sierra circular inalámbrica de 7 1/2 pulgadas",
+    "stock": 2,
+    "marca": "",
+    "nombre_original": "Sierra Circular inalambrica 7 1/2 pulgadas"
+  },
+  {
+    "codigo": "HEB-005",
+    "nombre": "Sierra circular eléctrica de 7 1/2 pulgadas",
+    "stock": 7,
+    "marca": "",
+    "nombre_original": "Sierra Circular Eléctrica 7 1/2 pulgadas"
+  },
+  {
+    "codigo": "HEB-006",
+    "nombre": "Sierra circular eléctrica BOSCH de 7 1/2 pulgadas",
+    "stock": 1,
+    "marca": "BOSCH",
+    "nombre_original": "Sierra Circular eléctrica 7 1/2 pulgadas Bosch"
+  },
+  {
+    "codigo": "HEB-007",
+    "nombre": "Esmeril angular inalámbrico de 7 1/2 pulgadas",
+    "stock": 1,
+    "marca": "",
+    "nombre_original": "Esmeril Angular Inalambrico 7 1/2 pulgadas"
+  },
+  {
+    "codigo": "HEB-008",
+    "nombre": "Esmeril angular eléctrico de 7 1/2 pulgadas",
+    "stock": 3,
+    "marca": "",
+    "nombre_original": "Esmeril Angular eléctrico 7 1/2 pulgadas"
+  },
+  {
+    "codigo": "HEB-009",
+    "nombre": "Esmeril angular eléctrico BOSCH de 7 1/2 pulgadas",
+    "stock": 1,
+    "marca": "BOSCH",
+    "nombre_original": "Esmeril angular 7 1/2 pulgadas electrico bosch"
+  },
+  {
+    "codigo": "HEB-010",
+    "nombre": "Esmeril angular inalámbrico de 4 1/2 pulgadas",
+    "stock": 2,
+    "marca": "",
+    "nombre_original": "Esmeril Angular Inalambrico 4 1/2 pulgadas"
+  },
+  {
+    "codigo": "HEB-011",
+    "nombre": "Sierra caladora eléctrica",
+    "stock": 5,
+    "marca": "",
+    "nombre_original": "Sierra Caladora eléctrica"
+  },
+  {
+    "codigo": "HEB-012",
+    "nombre": "Martillo demoledor inalámbrico (cango)",
+    "stock": 2,
+    "marca": "",
+    "nombre_original": "Cango Inalambrico"
+  },
+  {
+    "codigo": "HEB-013",
+    "nombre": "Rotomartillo inalámbrico",
+    "stock": 1,
+    "marca": "",
+    "nombre_original": "Taladro Rotomartillo inalambrico"
+  },
+  {
+    "codigo": "HEB-014",
+    "nombre": "Rotomartillo eléctrico SDS",
+    "stock": 4,
+    "marca": "",
+    "nombre_original": "Taladro Rotomartillo electrico SDS"
+  },
+  {
+    "codigo": "HEB-015",
+    "nombre": "Taladro percutor eléctrico",
+    "stock": 2,
+    "marca": "",
+    "nombre_original": "Taladro Percutor Eléctrico"
+  },
+  {
+    "codigo": "HEB-016",
+    "nombre": "Sierra sable inalámbrica",
+    "stock": 2,
+    "marca": "",
+    "nombre_original": "Sierra Sable Inalambrica"
+  },
+  {
+    "codigo": "HEB-017",
+    "nombre": "Sierra sable eléctrica",
+    "stock": 3,
+    "marca": "",
+    "nombre_original": "Sierra sable eléctrica"
+  },
+  {
+    "codigo": "HEB-018",
+    "nombre": "Multiherramienta oscilante inalámbrica",
+    "stock": 3,
+    "marca": "",
+    "nombre_original": "Osciladora Multifucional Inalambrica"
+  },
+  {
+    "codigo": "HEB-019",
+    "nombre": "Multiherramienta oscilante eléctrica UBERMANN",
+    "stock": 1,
+    "marca": "UBERMANN",
+    "nombre_original": "Osciladora Multifucional ubermann eléctrica"
+  },
+  {
+    "codigo": "HEB-020",
+    "nombre": "Cizalla inalámbrica",
+    "stock": 1,
+    "marca": "",
+    "nombre_original": "Cizalla Inalambrica"
+  },
+  {
+    "codigo": "HEB-021",
+    "nombre": "Pistola de calor BOSCH",
+    "stock": 1,
+    "marca": "BOSCH",
+    "nombre_original": "Pistola Calor Bodch"
+  },
+  {
+    "codigo": "HEB-022",
+    "nombre": "Lijadora de banda eléctrica",
+    "stock": 1,
+    "marca": "",
+    "nombre_original": "Lijadora de banda Eléctrica"
+  },
+  {
+    "codigo": "HEB-023",
+    "nombre": "Lijadora orbital inalámbrica",
+    "stock": 1,
+    "marca": "",
+    "nombre_original": "Lijadora Orbital Inalambrica"
+  },
+  {
+    "codigo": "HEB-024",
+    "nombre": "Soplador inalámbrico MAKITA",
+    "stock": 1,
+    "marca": "MAKITA",
+    "nombre_original": "Soplador inalambrico Makita"
+  },
+  {
+    "codigo": "HEB-025",
+    "nombre": "Soplador inalámbrico EINHELL",
+    "stock": 1,
+    "marca": "EINHELL",
+    "nombre_original": "Soplador Inalambrico Einhel"
+  },
+  {
+    "codigo": "HEB-026",
+    "nombre": "Cepillo eléctrico",
+    "stock": 1,
+    "marca": "",
+    "nombre_original": "Cepillo Eléctrico"
+  },
+  {
+    "codigo": "HEB-027",
+    "nombre": "Ingletadora eléctrica MAKITA",
+    "stock": 1,
+    "marca": "MAKITA",
+    "nombre_original": "Ingleteadora eléctrica makita"
+  },
+  {
+    "codigo": "HEB-028",
+    "nombre": "Ingletadora eléctrica EINHELL",
+    "stock": 1,
+    "marca": "EINHELL",
+    "nombre_original": "Ingleteadora eléctrica Einhel"
+  },
+  {
+    "codigo": "HEB-029",
+    "nombre": "Llave de impacto eléctrica (pistola de impacto)",
+    "stock": 2,
+    "marca": "",
+    "nombre_original": "Pistola Impacto eléctrica"
+  },
+  {
+    "codigo": "HEB-030",
+    "nombre": "Máquina de electrofusión",
+    "stock": 2,
+    "marca": "",
+    "nombre_original": "Maquina electrofucion"
+  },
+  {
+    "codigo": "HEB-031",
+    "nombre": "Máquina de polifusión",
+    "stock": 6,
+    "marca": "",
+    "nombre_original": "Maquina polifucion"
+  }
+]
